@@ -22,14 +22,15 @@ export type Route =
   | 'radiation'
   | 'exchanger'
   | 'diffusion'
+  | 'control-sim'
   | 'control'
   | 'bode'
   | 'filters'
   | 'fourier';
-const ROUTES: readonly Route[] = ['home', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion', 'control', 'bode', 'filters', 'fourier'];
+const ROUTES: readonly Route[] = ['home', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion', 'control-sim', 'control', 'bode', 'filters', 'fourier'];
 
 export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics' | 'control';
-const CONTROL: readonly Route[] = ['control', 'bode', 'filters', 'fourier'];
+const CONTROL: readonly Route[] = ['control-sim', 'control', 'bode', 'filters', 'fourier'];
 const HEAT: readonly Route[] = ['conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
 export const SECTION_OF = (r: Route): Section | null =>
   r === 'home' ? null : CONTROL.includes(r) ? 'control' : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';

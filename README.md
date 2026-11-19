@@ -8,7 +8,7 @@ Browser-based simulators for the core engineering lectures. The start page
 | **Thermal Separation** | `#/flowsheet`, `#/mccabe-thiele`, … | Flowsheet simulator and balance tasks, distillation, extraction, absorption, evaporation, crystallization, drying (described below) |
 | **Heat & Mass Transfer** | `#/conduction`, `#/fin`, `#/transient`, `#/convection`, `#/radiation`, `#/exchanger`, `#/diffusion` | Conduction, fins, transient conduction, convection, radiation, heat exchangers, diffusion |
 | **Electrical Circuits** | `#/circuits` | Circuit simulator: DC, transient, AC/Bode, step-by-step network simplification |
-| **Control Engineering** | `#/control`, `#/bode`, `#/filters`, `#/fourier` | Control loops with block diagram reduction, Bode/Nyquist, stability, filter design, Fourier/FFT |
+| **Control Engineering** | `#/control-sim`, `#/control`, `#/bode`, `#/filters`, `#/fourier` | Control loops with block diagram reduction, Bode/Nyquist, stability, filter design, Fourier/FFT |
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
@@ -114,6 +114,13 @@ buttons and logic inputs are operated directly on the sheet.
   unwrapped phase, gain and phase margins, Padé approximation of a dead time,
   step and impulse responses (RK4 on the controllable canonical form), rise
   time, overshoot and settling time, Routh table.
+- **Block-diagram simulator (`blocksim.ts`, page `#/control-sim`):** drag
+  sources (step, ramp, sine, square, pulse, noise), summing points, gains,
+  controllers, plants, dead time, saturation and scopes onto a sheet and wire
+  outputs to inputs. Linear blocks are discretised exactly (zero-order hold,
+  matrix exponential); algebraic loops are solved directly. The transfer
+  function from any source to any signal is found by solving the signal
+  equations symbolically, with poles, step response and Bode plot.
 - **Control loop (`loop.ts`, page `#/control`):** blocks P, I, PI, PD, PID
   (filtered D), lead/lag, PT1, PT2, PTn, IT1, PT1 with dead time, D, or a custom
   numerator/denominator. Each block can have a parallel branch and a local
@@ -129,6 +136,9 @@ buttons and logic inputs are operated directly on the sheet.
   second-order sections with Q and ω₀; unity-gain Sallen–Key component values.
 - **Fourier (`fourier.ts`, `#/fourier`):** analytic Fourier series (Gibbs
   phenomenon), radix-2 FFT with windows, aliasing at low sampling rates.
+
+In the circuit editor, rotating a part detaches its wires (reconnect them, or
+undo the rotation).
 
 In the circuit simulator, **AC / Bode** linearises every part at the DC
 operating point and sweeps the frequency (|H| and phase at each probe or

@@ -6,6 +6,11 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Simulator": "Simulator",
+  "Blocks": "Blok",
+  "Step": "Gav",
+  "Scope": "Osîloskop",
+  "Undo rotation": "Zivirandinê betal bike",
   "Control Engineering": "Endezyariya Kontrolê",
   "Control loop": "Xeleka kontrolê",
   "Bode diagram": "Diyagrama Bode",
