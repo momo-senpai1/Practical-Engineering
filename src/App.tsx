@@ -21,6 +21,18 @@ const AbsorptionPage = lazy(() => import('@/pages/AbsorptionPage'));
 const EvaporationPage = lazy(() => import('@/pages/EvaporationPage'));
 const CrystallizationPage = lazy(() => import('@/pages/CrystallizationPage'));
 const DryingPage = lazy(() => import('@/pages/DryingPage'));
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const CircuitsPage = lazy(() => import('@/pages/CircuitsPage'));
+const BeamPage = lazy(() => import('@/pages/mechanics/BeamPage'));
+const TrussPage = lazy(() => import('@/pages/mechanics/TrussPage'));
+const TorsionPage = lazy(() => import('@/pages/mechanics/TorsionPage'));
+const ConductionPage = lazy(() => import('@/pages/heat/ConductionPage'));
+const FinPage = lazy(() => import('@/pages/heat/FinPage'));
+const TransientPage = lazy(() => import('@/pages/heat/TransientPage'));
+const ConvectionPage = lazy(() => import('@/pages/heat/ConvectionPage'));
+const RadiationPage = lazy(() => import('@/pages/heat/RadiationPage'));
+const ExchangerPage = lazy(() => import('@/pages/heat/ExchangerPage'));
+const DiffusionPage = lazy(() => import('@/pages/heat/DiffusionPage'));
 
 export default function App() {
   const { route, params } = useRoute();
@@ -65,6 +77,30 @@ export default function App() {
                 <CrystallizationPage />
               ) : route === 'drying' ? (
                 <DryingPage />
+              ) : route === 'home' ? (
+                <HomePage />
+              ) : route === 'circuits' ? (
+                <CircuitsPage />
+              ) : route === 'beam' ? (
+                <BeamPage />
+              ) : route === 'truss' ? (
+                <TrussPage />
+              ) : route === 'torsion' ? (
+                <TorsionPage />
+              ) : route === 'conduction' ? (
+                <ConductionPage />
+              ) : route === 'fin' ? (
+                <FinPage />
+              ) : route === 'transient' ? (
+                <TransientPage />
+              ) : route === 'convection' ? (
+                <ConvectionPage />
+              ) : route === 'radiation' ? (
+                <RadiationPage />
+              ) : route === 'exchanger' ? (
+                <ExchangerPage />
+              ) : route === 'diffusion' ? (
+                <DiffusionPage />
               ) : (
                 <DistillationLinesPage />
               )}

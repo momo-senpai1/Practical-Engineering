@@ -1,10 +1,113 @@
-# Thermal Separation — P&ID Simulator
+# Practical Engineering
 
-Browser-based, interactive P&ID / flowsheet simulator for thermal separation
-processes (distillation, extraction/absorption, crystallisation, chromatography).
+Browser-based simulators for the core engineering lectures. The start page
+(`#/`) leads to three areas:
 
-**Stack:** React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui · `@xyflow/react` · Zustand
-· Tremor + Recharts (analysis panel).
+| Area | Routes | What it does |
+|---|---|---|
+| **Thermal Separation** | `#/flowsheet`, `#/mccabe-thiele`, … | Flowsheet simulator and balance tasks, distillation, extraction, absorption, evaporation, crystallization, drying (described below) |
+| **Heat & Mass Transfer** | `#/conduction`, `#/fin`, `#/transient`, `#/convection`, `#/radiation`, `#/exchanger`, `#/diffusion` | Conduction, fins, transient conduction, convection, radiation, heat exchangers, diffusion |
+| **Electrical Circuits** | `#/circuits` | DC circuit simulator |
+| **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
+
+**Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
+· Recharts · KaTeX.
+
+### Heat & Mass Transfer (`engine/heat/`)
+
+Topics follow typical heat and mass transfer lectures (TU Darmstadt WuSt,
+TUM Heat and Mass Transfer, Uni Siegen):
+
+- **Conduction (`conduction.ts`):** plane wall, pipe or sphere with any number
+  of layers and convection on both sides (thermal-resistance method).
+  - Results: Q̇, U-value or k per length, interface temperatures.
+  - T(x) profile: linear, logarithmic or 1/r.
+  - Heat loss over the insulation thickness, critical insulation radius.
+- **Fin / rod:** pin or plate fin with an adiabatic, convective or infinitely
+  long tip.
+  - T(x) along the fin, Q̇, fin efficiency η, effectiveness ε, Biot check.
+  - Comparison of steel, aluminium and copper.
+- **Transient conduction (`transient.ts`):**
+  - plate, cylinder and sphere by the series solution: eigenvalues from the
+    characteristic equation, Bessel functions for the cylinder;
+  - lumped capacitance;
+  - semi-infinite body with a temperature step or convection at the surface;
+  - T(x) at several times and T(t) at the centre and the surface.
+- **Convection (`convection.ts`):** air and water property tables, then Re,
+  Pr, Gr/Ra, Nu, α and Q̇ for five cases:
+  - flat plate (laminar and turbulent combined), with local α(x) and boundary
+    layer δ(x);
+  - pipe flow (laminar developing flow, transition, Gnielinski);
+  - cylinder in cross flow (Churchill–Bernstein);
+  - free convection on a vertical plate and a horizontal cylinder
+    (Churchill–Chu).
+- **Radiation (`radiation.ts`):**
+  - Planck spectra, Wien, band fraction;
+  - gray two-surface exchange (plates, concentric cylinders and spheres, small
+    body in a large room);
+  - radiation shields, radiative heat transfer coefficient;
+  - analytical view factors.
+- **Heat exchanger (`exchanger.ts`):** co-current, counter-current and cross
+  flow by ε–NTU, with an LMTD check, temperature profiles along the area and
+  ε(NTU) curves.
+- **Mass transfer (`diffusion.ts`):**
+  - Fick's law through a layer;
+  - Stefan tube (one-sided diffusion vs equimolar counter-diffusion, with
+    profiles);
+  - Fuller diffusion coefficients;
+  - transient diffusion into a semi-infinite medium (penetration theory).
+
+### Electrical Circuits (`engine/circuits/solver.ts`)
+
+Drag components onto the sheet and wire their terminals.
+
+- **Components:** voltage source, current source, ground, resistor (optional
+  power rating), lamp (hot resistance U²/P from its rating, brightness), capacitor
+  (open at DC), inductor (short at DC), switch, diode (Shockley equation), LED
+  (forward voltage and current, colour, brightness), ammeter and voltmeter.
+- **Editing:** every component can be named, rotated and given values with SI
+  prefixes (`4k7`, `10m`, `2,2µ`).
+- **Solver:** modified nodal analysis with Newton–Raphson and junction-voltage
+  limiting for diodes and LEDs.
+- **Results:**
+  - voltage, current, U/I and power for every component;
+  - node potentials;
+  - the nodal equation system typeset as a matrix;
+  - a power balance with a Kirchhoff check.
+- **Warnings:** overload, short circuit, a loop of ideal sources, floating
+  parts, a missing ground.
+
+### Mechanics (`engine/mechanics/`)
+
+Topics follow the usual Engineering Mechanics 1 and 2 syllabus (statics, then
+strength of materials):
+
+- **Beam (`beam.ts`):**
+  - pinned, roller and fixed supports, hinges (Gerber beams);
+  - point forces at any angle, point moments, uniform, trapezoidal and
+    triangular line loads;
+  - all supports and loads can be dragged along the beam.
+  - Reactions and the deflection come from Euler–Bernoulli finite elements
+    between the load points, with the curve inside each element added
+    analytically, so statically indeterminate beams are exact too.
+  - N/Q/M diagrams, bending stress for rectangle, circle, tube or I-section,
+    deflection curve.
+  - Degree of indeterminacy n = r − 3 − g, and the equilibrium equations with
+    numbers as the solution path.
+- **Truss (`truss.ts`):**
+  - draw nodes and bars on the canvas, set supports and loads;
+  - bar forces (tension/compression, zero-force members) and reactions by the
+    direct stiffness method;
+  - determinacy check 2k = s + r, mechanism detection, deformed shape;
+  - method of joints shown per node.
+- **Shaft (`torsion.ts`):**
+  - stepped solid or hollow segments, torques at the stations;
+  - clamped–free, or clamped–clamped solved with the compatibility condition;
+  - torque, shear stress τ = M_t/W_t and angle of twist φ = M_t·L/(G·I_p) per
+    segment, with the solution path;
+  - power-to-torque helper.
+
+---
 
 ## Run locally
 

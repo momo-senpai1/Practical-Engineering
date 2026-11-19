@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export type Route =
+  | 'home'
   | 'flowsheet'
   | 'mccabe-thiele'
   | 'batch'
@@ -9,13 +10,29 @@ export type Route =
   | 'absorption'
   | 'evaporation'
   | 'crystallization'
-  | 'drying';
-const ROUTES: readonly Route[] = ['flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying'];
+  | 'drying'
+  | 'circuits'
+  | 'beam'
+  | 'truss'
+  | 'torsion'
+  | 'conduction'
+  | 'fin'
+  | 'transient'
+  | 'convection'
+  | 'radiation'
+  | 'exchanger'
+  | 'diffusion';
+const ROUTES: readonly Route[] = ['home', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
+
+export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics';
+const HEAT: readonly Route[] = ['conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
+export const SECTION_OF = (r: Route): Section | null =>
+  r === 'home' ? null : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';
 
 function parse(): { route: Route; params: URLSearchParams } {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const [path = '', query = ''] = raw.split('?');
-  const route = (ROUTES as readonly string[]).includes(path) ? (path as Route) : 'flowsheet';
+  const route = (ROUTES as readonly string[]).includes(path) ? (path as Route) : 'home';
   return { route, params: new URLSearchParams(query) };
 }
 
