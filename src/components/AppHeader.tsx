@@ -1,5 +1,5 @@
 import { Moon, RotateCcw, Sun } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { navigate, SECTION_OF, type Route, type Section } from '@/lib/route';
 import { useTheme } from '@/lib/theme';
@@ -67,16 +67,34 @@ const tab = (active: boolean) =>
       : 'text-plant-300 hover:bg-white/[0.04] hover:text-plant-100',
   );
 
-function Group({ g, route }: { g: NavGroup; route: Route }) {
+/** Dropdown state: closes on a click outside or Escape (not on mouse-leave, which fired in the gap below the button). */
+function useDropdown() {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: PointerEvent) => ref.current && !ref.current.contains(e.target as globalThis.Node) && setOpen(false);
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('pointerdown', down);
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('pointerdown', down);
+      document.removeEventListener('keydown', key);
+    };
+  }, [open]);
+  return { open, setOpen, ref };
+}
+
+function Group({ g, route }: { g: NavGroup; route: Route }) {
+  const { open, setOpen, ref } = useDropdown();
   const active = g.items.find((i) => i.route === route);
   return (
-    <div className="relative" onMouseLeave={() => setOpen(false)}>
+    <div ref={ref} className="relative">
       <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)} className={tab(!!active)}>
         {active ? `${t(g.label)} · ${t(active.label)}` : t(g.label)} ▾
       </button>
       {open && (
-        <div role="menu" className="glass absolute left-0 top-full z-50 mt-1 min-w-[190px] !bg-plant-900/95 p-1">
+        <div role="menu" className="glass absolute left-0 top-full z-50 mt-1 shadow-lg min-w-[190px] !bg-plant-900/95 p-1">
           {g.items.map((i) => (
             <button
               key={i.route}
@@ -134,10 +152,10 @@ export function AppHeader({ route }: { route: Route }) {
 
 /** Section chooser: Thermal Separation / Electrical Circuits / Mechanics. */
 function SectionMenu({ section }: { section: Section }) {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, ref } = useDropdown();
   const cur = SECTIONS.find((s) => s.id === section)!;
   return (
-    <div className="relative" onMouseLeave={() => setOpen(false)}>
+    <div ref={ref} className="relative">
       <button
         type="button"
         aria-haspopup="menu"
@@ -149,7 +167,7 @@ function SectionMenu({ section }: { section: Section }) {
         <span className="text-plant-500">/</span> {t(cur.label)} ▾
       </button>
       {open && (
-        <div role="menu" className="glass absolute left-0 top-full z-50 mt-1 min-w-[200px] !bg-plant-900/95 p-1">
+        <div role="menu" className="glass absolute left-0 top-full z-50 mt-1 shadow-lg min-w-[200px] !bg-plant-900/95 p-1">
           {SECTIONS.map((s) => (
             <button
               key={s.id}

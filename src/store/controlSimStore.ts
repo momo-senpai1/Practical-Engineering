@@ -65,6 +65,15 @@ export const PRESETS: { title: string; items: Preset[] }[] = [
     ],
   },
   {
+    title: 'Filters',
+    items: [
+      { id: 'lp', label: 'Low-pass filter', prefix: 'F', data: { kind: 'filter', approx: 'butterworth', ftype: 'lowpass', order: 2, fc: 1, bw: 0.5, ripple: 1 } },
+      { id: 'hp', label: 'High-pass filter', prefix: 'F', data: { kind: 'filter', approx: 'butterworth', ftype: 'highpass', order: 2, fc: 1, bw: 0.5, ripple: 1 } },
+      { id: 'bp', label: 'Band-pass filter', prefix: 'F', data: { kind: 'filter', approx: 'butterworth', ftype: 'bandpass', order: 2, fc: 1, bw: 0.5, ripple: 1 } },
+      { id: 'bs', label: 'Band-stop filter (notch)', prefix: 'F', data: { kind: 'filter', approx: 'butterworth', ftype: 'bandstop', order: 2, fc: 1, bw: 0.5, ripple: 1 } },
+    ],
+  },
+  {
     title: 'Nonlinear & display',
     items: [
       { id: 'sat', label: 'Saturation (actuator limit)', prefix: 'Sat', data: { kind: 'sat', lo: -1, hi: 1 } },
@@ -154,6 +163,21 @@ export const SIM_EXAMPLES: Record<string, Ex> = {
     edges: [wire('w', 'e', 0), wire('e', 'R'), wire('R', 'G'), wire('G', 'e', 1), wire('G', 'sc', 0), wire('w', 'sc', 1)],
     settings: { tEnd: 40, steps: 2000, src: 'w', out: 'G' },
   },
+  noisefilter: {
+    label: 'Noisy measurement with a low-pass filter in the feedback',
+    nodes: [
+      node('w', 'w', 0, 100, { kind: 'source', wave: 'step', amp: 1, t0: 1 }),
+      node('e', 'e', 130, 108, { kind: 'sum', signs: '+-' }),
+      node('R', 'R', 220, 92, spec({ kind: 'PID', K: 2, Ti: 2, Td: 0.4 })),
+      node('G', 'G', 420, 92, spec({ kind: 'PT2', K: 1, T: 1, zeta: 0.7 })),
+      node('m', 'm', 620, 108, { kind: 'sum', signs: '++' }),
+      node('n', 'n', 520, 190, { kind: 'source', wave: 'noise', amp: 0.05, t0: 0 }),
+      node('F', 'F', 330, 250, { kind: 'filter', approx: 'butterworth', ftype: 'lowpass', order: 2, fc: 1, bw: 0.5, ripple: 1, flip: true }),
+      node('sc', 'Scope', 760, 80, { kind: 'scope', inputs: 3 }),
+    ],
+    edges: [wire('w', 'e', 0), wire('e', 'R'), wire('R', 'G'), wire('G', 'm', 0), wire('n', 'm', 1), wire('m', 'F'), wire('F', 'e', 1), wire('G', 'sc', 0), wire('w', 'sc', 1), wire('m', 'sc', 2)],
+    settings: { tEnd: 20, steps: 2000, src: 'w', out: 'G' },
+  },
   cascade: {
     label: 'Cascade control (inner and outer loop)',
     nodes: [
@@ -185,6 +209,14 @@ interface State {
   setSettings: (p: Partial<SimSettings>) => void;
   load: (id: string) => void;
   clear: () => void;
+  /** current sheet for saving, and loading a saved one */
+  snapshot: () => SimSheet;
+  loadSheet: (p: unknown) => void;
+}
+export interface SimSheet {
+  nodes: SNode[];
+  edges: SEdge[];
+  settings: SimSettings;
 }
 
 let seq = 0;
@@ -239,6 +271,12 @@ export const useControlSim = create<State>()(
         if (ex) set({ nodes: structuredClone(ex.nodes), edges: structuredClone(ex.edges), settings: { ...ex.settings }, loadSeq: get().loadSeq + 1 });
       },
       clear: () => set({ nodes: [], edges: [], settings: { tEnd: 20, steps: 2000 }, loadSeq: get().loadSeq + 1 }),
+      snapshot: () => ({ nodes: get().nodes.map(({ id, type, position, data }) => ({ id, type, position, data })) as SNode[], edges: get().edges, settings: get().settings }),
+      loadSheet: (p) => {
+        const s = p as Partial<SimSheet>;
+        if (!Array.isArray(s.nodes) || !Array.isArray(s.edges)) return;
+        set({ nodes: structuredClone(s.nodes).map((n) => ({ ...n, selected: false })), edges: structuredClone(s.edges), settings: { tEnd: 20, steps: 2000, ...s.settings }, loadSeq: get().loadSeq + 1 });
+      },
     }),
     {
       name: 'ts-control-sim',

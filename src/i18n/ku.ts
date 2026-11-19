@@ -6,6 +6,8 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Save": "Tomar bike",
+  "My sheets": "Rûpelên min",
   "Simulator": "Simulator",
   "Blocks": "Blok",
   "Step": "Gav",

@@ -2,12 +2,14 @@ import { FlipHorizontal2, Trash2 } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
 import { Tex } from '@/components/balance/Tex';
 import { SimCanvas, useSimulation } from '@/components/control/SimCanvas';
+import { SheetManager } from '@/components/SheetManager';
 import { ALL, SpecEditor } from '@/components/control/SpecEditor';
 import { LineChartBox } from '@/components/heat/charts';
 import { fieldCls, nf, Num } from '@/components/mechanics/common';
 import { Kpi, Notice } from '@/components/workbench/controls';
-import { hasOutput, linearTF, type SimBlockData, type SrcWave } from '@/engine/control/blocksim';
-import { bode, cTex, roots, stepInfo, stepResponse, tfTex } from '@/engine/control/poly';
+import { blockG, filterTF, hasOutput, isDyn, linearTF, openLoopTF, type SimBlockData, type SrcWave } from '@/engine/control/blocksim';
+import type { Approx, FType } from '@/engine/control/filters';
+import { bode, cTex, margins, roots, stepInfo, stepResponse, tfTex, type TF } from '@/engine/control/poly';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { PRESETS, SIM_DND, SIM_EXAMPLES, useControlSim, type SNode } from '@/store/controlSimStore';
@@ -15,6 +17,8 @@ import { PRESETS, SIM_DND, SIM_EXAMPLES, useControlSim, type SNode } from '@/sto
 function Palette() {
   const load = useControlSim((s) => s.load);
   const clear = useControlSim((s) => s.clear);
+  const snapshot = useControlSim((s) => s.snapshot);
+  const loadSheet = useControlSim((s) => s.loadSheet);
   const onDragStart = (e: DragEvent, id: string) => {
     e.dataTransfer.setData(SIM_DND, id);
     e.dataTransfer.effectAllowed = 'move';
@@ -44,7 +48,10 @@ function Palette() {
           </div>
         ))}
       </div>
-      <div className="mt-auto space-y-1 border-t border-white/[0.05] p-3">
+      <div className="mt-auto border-t border-white/[0.05] p-3">
+        <SheetManager app="control-sim" current={snapshot} apply={loadSheet} />
+      </div>
+      <div className="space-y-1 border-t border-white/[0.05] p-3">
         <p className="tag mb-1 text-plant-400">{t('Examples')}</p>
         {Object.entries(SIM_EXAMPLES).map(([id, ex]) => (
           <button key={id} type="button" onClick={() => load(id)} className="block w-full rounded border border-white/[0.08] px-2 py-1 text-left text-[11px] text-plant-200 hover:border-signal-vapor/40 hover:text-signal-vapor">
@@ -161,6 +168,45 @@ function BlockPanel({ n }: { n: SNode }) {
           <Num ariaLabel="inputs" value={d.inputs ?? 1} onChange={(v) => set({ inputs: Math.min(4, Math.max(1, Math.round(v))) })} />
         </Row>
       )}
+      {d.kind === 'filter' && (
+        <div className="space-y-1.5">
+          <Row label={t('Approximation')}>
+            <select className={fieldCls} value={d.approx ?? 'butterworth'} onChange={(e) => set({ approx: e.target.value as Approx })}>
+              <option value="butterworth">Butterworth</option>
+              <option value="chebyshev">{t('Chebyshev I')}</option>
+              <option value="bessel">Bessel</option>
+            </select>
+          </Row>
+          <Row label={t('Type')}>
+            <select className={fieldCls} value={d.ftype ?? 'lowpass'} onChange={(e) => set({ ftype: e.target.value as FType })}>
+              <option value="lowpass">{t('Low-pass')}</option>
+              <option value="highpass">{t('High-pass')}</option>
+              <option value="bandpass">{t('Band-pass')}</option>
+              <option value="bandstop">{t('Band-stop (notch)')}</option>
+            </select>
+          </Row>
+          <Row label={t('Order n')}>
+            <Num ariaLabel="order" value={d.order ?? 2} onChange={(v) => set({ order: Math.max(1, Math.min(d.approx === 'bessel' ? 6 : 10, Math.round(v))) })} />
+          </Row>
+          <Row label={d.ftype === 'bandpass' || d.ftype === 'bandstop' ? t('Centre frequency f₀ [Hz]') : t('Cut-off frequency f_c [Hz]')}>
+            <Num ariaLabel="fc" value={d.fc ?? 1} onChange={(v) => set({ fc: Math.max(1e-6, v) })} />
+          </Row>
+          {(d.ftype === 'bandpass' || d.ftype === 'bandstop') && (
+            <Row label={t('Bandwidth B [Hz]')}>
+              <Num ariaLabel="bw" value={d.bw ?? 0.5} onChange={(v) => set({ bw: Math.max(1e-6, v) })} />
+            </Row>
+          )}
+          {d.approx === 'chebyshev' && (
+            <Row label={t('Pass-band ripple [dB]')}>
+              <Num ariaLabel="ripple" value={d.ripple ?? 1} onChange={(v) => set({ ripple: Math.max(0.01, v) })} />
+            </Row>
+          )}
+          <div className="text-[11px] text-plant-200">
+            <Tex block math={`F(s) = ${tfTex(filterTF(d))}`} />
+          </div>
+          <p className="text-[10px] text-plant-500">{t('Choose the simulation step well below 1/f_c (Δt < 1/(20 f_c)).')}</p>
+        </div>
+      )}
       {d.kind === 'tf' && <SpecEditor key={n.id + (d.spec?.kind ?? '')} spec={d.spec ?? { kind: 'PT1', K: 1, T: 1 }} kinds={ALL} onChange={(spec) => set({ spec })} />}
     </div>
   );
@@ -232,14 +278,123 @@ function ScopeTab() {
   );
 }
 
-function TFTab() {
+const CURVE_COLORS = ['rgb(var(--sig-liquid))', 'rgb(var(--sig-vapor))', 'rgb(var(--sig-heat))', 'rgb(var(--sig-alarm))', 'rgb(var(--plant-300))'];
+
+/** Bode (and Nyquist) of the open loop at a summing point, the selected transfer function, or single blocks. */
+function BodeTab() {
   const { blocks, wires } = useSimulation();
   const settings = useControlSim((s) => s.settings);
-  const setSettings = useControlSim((s) => s.setSettings);
+  const { src, out } = pickSrcOut(blocks, wires, settings);
+  const options = useMemo(() => {
+    const o: { id: string; label: string; open: boolean; tf: TF | null }[] = [];
+    for (const b of blocks) {
+      if (b.data.kind !== 'sum') continue;
+      const L = openLoopTF(blocks, wires, b.id);
+      if (L.ok && L.T) o.push({ id: `L:${b.id}`, label: t('Open loop L (cut at {name})', { name: b.data.name }), open: true, tf: L.T });
+    }
+    if (src && out) {
+      const T = linearTF(blocks, wires, src.id, out.id);
+      if (T.ok && T.T) o.push({ id: 'T', label: `${t('Transfer function')} ${src.data.name} → ${out.data.name}`, open: false, tf: T.T });
+    }
+    for (const b of blocks) if (isDyn(b.data) || b.data.kind === 'gain') o.push({ id: `G:${b.id}`, label: `${t('Block')} ${b.data.name}`, open: false, tf: blockG(b.data) });
+    return o;
+  }, [blocks, wires, src, out]);
+  const [picked, setPicked] = useState<string[] | null>(null);
+  const sel = (picked ?? [options.find((o) => o.open)?.id ?? options[0]?.id, options.find((o) => o.id === 'T')?.id].filter((x): x is string => !!x)).filter((id) => options.some((o) => o.id === id));
+  const [hz, setHz] = useState(false);
+  const curves = options.filter((o) => sel.includes(o.id) && o.tf);
+  const corners = curves.flatMap((c) => [...roots(c.tf!.den), ...roots(c.tf!.num)]).map((p) => Math.hypot(p.re, p.im)).filter((v) => v > 1e-9);
+  const wMin = Math.max(1e-4, Math.min(1, ...corners) / 100);
+  const wMax = Math.min(1e6, Math.max(1, ...corners) * 100);
+  const data = curves.map((c) => ({ c, bd: bode(c.tf!, wMin, wMax, 400), mg: c.open ? margins(c.tf!, wMin, wMax) : null }));
+  const k = hz ? 1 / (2 * Math.PI) : 1;
+  const xl = hz ? 'f [Hz]' : 'ω [1/s]';
+  const n = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '–' : nf(v, d));
+  const loop = data.find((d) => d.mg);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-plant-300">
+        {options.map((o) => (
+          <label key={o.id} className="flex items-center gap-1">
+            <input type="checkbox" checked={sel.includes(o.id)} onChange={(e) => setPicked(e.target.checked ? [...sel, o.id] : sel.filter((x) => x !== o.id))} />
+            {o.label}
+          </label>
+        ))}
+        <label className="ml-auto flex items-center gap-1">
+          <input type="checkbox" checked={hz} onChange={(e) => setHz(e.target.checked)} />
+          {t('Frequency in Hz')}
+        </label>
+      </div>
+      {!options.some((o) => o.open) && <Notice tone="info">{t('Close a loop through a summing point with a − input to see the open loop L(s) with phase and gain margin.')}</Notice>}
+      {loop?.mg && (
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          <Kpi label={t('Phase margin')} value={n(loop.mg.pm, 1)} unit="°" sub={loop.mg.wc ? `${hz ? 'f_c' : 'ω_c'} = ${n(loop.mg.wc * k)}` : ''} />
+          <Kpi label={t('Gain margin')} value={n(loop.mg.gm, 1)} unit="dB" sub={loop.mg.w180 ? `${hz ? 'f₁₈₀' : 'ω₁₈₀'} = ${n(loop.mg.w180 * k)}` : ''} />
+          <Kpi label={t('Gain crossover ω_c')} value={n(loop.mg.wc)} unit="1/s" />
+          <Kpi label={t('Stability (Nyquist)')} value={loop.mg.pm !== null ? (loop.mg.pm > 0 && (loop.mg.gm === null || loop.mg.gm > 0) ? t('stable') : t('unstable')) : '–'} small sub={t('for a stable open loop')} />
+        </div>
+      )}
+      {curves.length > 0 && (
+        <div className="grid gap-3 xl:grid-cols-2">
+          <div className="space-y-2">
+            <LineChartBox
+              series={data.map((d, i) => ({ name: d.c.label, data: d.bd.map((p) => ({ x: p.w * k, y: Math.max(p.db, -200) })), color: CURVE_COLORS[i % 5] }))}
+              xLabel={xl}
+              yLabel="|G| [dB]"
+              logX
+              height={190}
+              refX={loop?.mg?.wc ? [{ x: loop.mg.wc * k, label: hz ? 'f_c' : 'ω_c' }] : undefined}
+              digits={0}
+            />
+            <LineChartBox
+              series={data.map((d, i) => ({ name: d.c.label, data: d.bd.map((p) => ({ x: p.w * k, y: p.deg })), color: CURVE_COLORS[i % 5] }))}
+              xLabel={xl}
+              yLabel="φ [°]"
+              logX
+              height={190}
+              refX={loop?.mg?.w180 ? [{ x: loop.mg.w180 * k, label: '−180°' }] : undefined}
+              digits={0}
+            />
+          </div>
+          <div className="space-y-2">
+            {loop && (
+              <LineChartBox
+                series={[
+                  { name: `${t('Nyquist')}: ${loop.c.label}`, data: loop.bd.filter((p) => Math.hypot(p.re, p.im) < 20).map((p) => ({ x: p.re, y: p.im })) },
+                  { name: t('critical point −1'), data: [{ x: -1, y: -0.08 }, { x: -1, y: 0.08 }], color: 'rgb(var(--sig-alarm))' },
+                ]}
+                xLabel="Re"
+                yLabel="Im"
+                height={250}
+                digits={2}
+              />
+            )}
+            <div className="space-y-0.5 text-[12px] text-plant-100">
+              {curves.map((c) => (
+                <Tex key={c.id} block math={`${c.open ? 'L(s)' : 'G(s)'} = ${tfTex(c.tf!)}`} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Default source and output for the transfer-function views. */
+function pickSrcOut(blocks: ReturnType<typeof useSimulation>['blocks'], wires: ReturnType<typeof useSimulation>['wires'], settings: { src?: string; out?: string }) {
   const sources = blocks.filter((b) => b.data.kind === 'source');
   const outs = blocks.filter((b) => hasOutput(b.data) && b.data.kind !== 'source');
   const src = sources.find((b) => b.id === settings.src) ?? sources[0];
   const out = outs.find((b) => b.id === settings.out) ?? outs.find((b) => b.data.kind === 'tf' && !b.data.flip && wires.some((w) => w.source === b.id && blocks.find((x) => x.id === w.target)?.data.kind === 'sum')) ?? outs.at(-1);
+  return { sources, outs, src, out };
+}
+
+function TFTab() {
+  const { blocks, wires } = useSimulation();
+  const settings = useControlSim((s) => s.settings);
+  const setSettings = useControlSim((s) => s.setSettings);
+  const { sources, outs, src, out } = pickSrcOut(blocks, wires, settings);
   const lin = useMemo(() => (src && out ? linearTF(blocks, wires, src.id, out.id) : null), [blocks, wires, src, out]);
   const T = lin?.T ?? null;
   const poles = useMemo(() => (T ? roots(T.den) : []), [T]);
@@ -316,7 +471,7 @@ function TFTab() {
 }
 
 function Results() {
-  const [tab, setTab] = useState<'scope' | 'tf'>('scope');
+  const [tab, setTab] = useState<'scope' | 'tf' | 'bode'>('scope');
   const { r } = useSimulation();
   const settings = useControlSim((s) => s.settings);
   const setSettings = useControlSim((s) => s.setSettings);
@@ -327,6 +482,7 @@ function Results() {
           [
             ['scope', 'Scope'],
             ['tf', 'Transfer function'],
+            ['bode', 'Bode diagram'],
           ] as const
         ).map(([id, l]) => (
           <button key={id} role="tab" type="button" aria-selected={tab === id} onClick={() => setTab(id)} className={cn('rounded px-2.5 py-1 text-[11px] transition-colors', tab === id ? 'bg-signal-vapor/15 text-signal-vapor' : 'text-plant-300 hover:bg-white/[0.04]')}>
@@ -351,7 +507,7 @@ function Results() {
             {t(w.key, w.vars)}
           </Notice>
         ))}
-        {tab === 'scope' ? <ScopeTab /> : <TFTab />}
+        {tab === 'scope' ? <ScopeTab /> : tab === 'bode' ? <BodeTab /> : <TFTab />}
       </div>
     </section>
   );

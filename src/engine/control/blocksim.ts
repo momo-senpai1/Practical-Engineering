@@ -11,10 +11,11 @@
  * elimination over rational functions) for the transfer function from a source to a signal.
  */
 
+import { designFilter, type Approx, type FType } from './filters';
 import { blockTF, type BlockSpec } from './loop';
 import { add, cabs, fromRoots, mul, normalize, pade, roots, scale, series, tf, tfTex, trim, type C, type Poly, type TF } from './poly';
 
-export type SimKind = 'source' | 'sum' | 'gain' | 'tf' | 'sat' | 'scope';
+export type SimKind = 'source' | 'sum' | 'gain' | 'tf' | 'filter' | 'sat' | 'scope';
 export type SrcWave = 'step' | 'ramp' | 'sine' | 'square' | 'pulse' | 'const' | 'noise';
 
 export interface SimBlockData {
@@ -32,6 +33,13 @@ export interface SimBlockData {
   K?: number;
   /** transfer-function block */
   spec?: BlockSpec;
+  /** filter: approximation, type, order, cut-off / centre frequency [Hz], bandwidth [Hz], ripple [dB] */
+  approx?: Approx;
+  ftype?: FType;
+  order?: number;
+  fc?: number;
+  bw?: number;
+  ripple?: number;
   /** saturation */
   lo?: number;
   hi?: number;
@@ -54,6 +62,8 @@ export interface SimWire {
 
 export const nInputs = (d: SimBlockData) =>
   d.kind === 'source' ? 0 : d.kind === 'sum' ? Math.max(1, (d.signs ?? '+-').length) : d.kind === 'scope' ? Math.min(4, Math.max(1, Math.round(d.inputs ?? 1))) : 1;
+/** Blocks with internal states (transfer functions and filters). */
+export const isDyn = (d: SimBlockData) => d.kind === 'tf' || d.kind === 'filter';
 export const hasOutput = (d: SimBlockData) => d.kind !== 'scope';
 
 /** Value of a source at time t. */
@@ -84,7 +94,16 @@ export function blockG(d: SimBlockData): TF {
   if (d.kind === 'gain') return tf([d.K ?? 1], [1]);
   if (d.kind === 'sat') return tf([1], [1]);
   if (d.kind === 'tf') return blockTF(d.spec ?? { kind: 'PT1', K: 1, T: 1 });
+  if (d.kind === 'filter') return filterTF(d);
   return tf([1], [1]);
+}
+
+/** Transfer function of a filter block (frequencies given in Hz). */
+export function filterTF(d: SimBlockData): TF {
+  const n = Math.max(1, Math.min(d.approx === 'bessel' ? 6 : 10, Math.round(d.order ?? 2)));
+  const w = 2 * Math.PI * Math.max(d.fc ?? 1, 1e-6);
+  const bw = 2 * Math.PI * Math.max(d.bw ?? 0.5, 1e-6);
+  return designFilter(d.approx ?? 'butterworth', d.ftype ?? 'lowpass', n, w, bw, d.ripple ?? 1).tf;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,7 +225,7 @@ export function simulate(blocks: SimBlock[], wires: SimWire[], tEnd: number, n =
 
   const disc = new Map<string, Disc>();
   for (const b of blocks) {
-    if (b.data.kind !== 'tf') continue;
+    if (!isDyn(b.data)) continue;
     const d = discretise(blockG(b.data), h);
     if (!d) {
       warnings.push({ key: '{name}: the transfer function is improper (numerator degree > denominator degree) and cannot be simulated.', vars: { name: b.data.name } });
@@ -214,7 +233,7 @@ export function simulate(blocks: SimBlock[], wires: SimWire[], tEnd: number, n =
     }
     disc.set(b.id, d);
   }
-  const feed = (b: SimBlock) => b.data.kind === 'sum' || b.data.kind === 'gain' || b.data.kind === 'sat' || (b.data.kind === 'tf' && disc.get(b.id)!.D !== 0 && disc.get(b.id)!.delay === 0);
+  const feed = (b: SimBlock) => b.data.kind === 'sum' || b.data.kind === 'gain' || b.data.kind === 'sat' || (isDyn(b.data) && disc.get(b.id)!.D !== 0 && disc.get(b.id)!.delay === 0);
   // evaluation order of feed-through blocks (depth first; a back edge means an algebraic loop)
   const order: SimBlock[] = [];
   const state = new Map<string, number>();
@@ -320,7 +339,7 @@ export function simulate(blocks: SimBlock[], wires: SimWire[], tEnd: number, n =
     // 1. outputs that do not depend on the present input
     for (const b of blocks) {
       if (b.data.kind === 'source') val.set(b.id, sourceValue(b.data, tk, rnd));
-      else if (b.data.kind === 'tf' && !feed(b)) {
+      else if (isDyn(b.data) && !feed(b)) {
         const q = disc.get(b.id)!;
         if (q.delay > 0) val.set(b.id, q.buf[0]!);
         else {
@@ -336,7 +355,7 @@ export function simulate(blocks: SimBlock[], wires: SimWire[], tEnd: number, n =
     for (const [id, arr] of y) arr.push(val.get(id)!);
     // 3. advance the states with the input held over the step
     for (const b of blocks) {
-      if (b.data.kind !== 'tf') continue;
+      if (!isDyn(b.data)) continue;
       const q = disc.get(b.id)!;
       const u = inVal(b, 0);
       if (q.delay > 0) {
@@ -506,4 +525,18 @@ export function linearTF(blocks: SimBlock[], wires: SimWire[], srcId: string, ou
   if (trim(T.den).every((v) => Math.abs(v) < 1e-300)) return { ok: false, error: 'singular', T: null, eqs, linearised };
   const Tc = isZero(T) ? ZERO : normalize(cancel(T));
   return { ok: true, T: Tc, eqs, linearised: [...new Set(linearised)] };
+}
+
+/**
+ * Open loop L(s) cut at a summing point: its output e is replaced by a test signal and the signal
+ * that comes back at its first negative input is measured (negative feedback convention: T = L/(1 + L)).
+ */
+export function openLoopTF(blocks: SimBlock[], wires: SimWire[], sumId: string): LinearResult & { back?: string } {
+  const sum = blocks.find((b) => b.id === sumId);
+  const signs = sum?.data.signs ?? '+-';
+  const k = signs.indexOf('-');
+  const back = k >= 0 ? wires.find((w) => w.target === sumId && w.targetHandle === `in${k}`)?.source : undefined;
+  if (!sum || sum.data.kind !== 'sum' || !back || blocks.find((b) => b.id === back)?.data.kind === 'source') return { ok: false, error: 'noloop', T: null, eqs: [], linearised: [] };
+  const cut = blocks.map((b) => (b.id === sumId ? { id: b.id, data: { ...b.data, kind: 'source' as const } } : b));
+  return { ...linearTF(cut, wires, sumId, back), back };
 }
