@@ -121,7 +121,17 @@ function CompNode({ id, data, selected }: NodeProps<CNode>) {
   const vertical = rot === 90 || rot === 270;
   const W = vertical ? sh.h : sh.w;
   const Hh = vertical ? sh.w : sh.h;
-  useEffect(() => updateInternals(id), [id, rot, sh.w, sh.h, updateInternals]);
+  // re-measure the handles once the rotated layout is painted (measuring in the same tick picks up the old positions)
+  useEffect(() => {
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => updateInternals(id));
+    });
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+    };
+  }, [id, rot, sh.w, sh.h, updateInternals]);
   const pins = DEVICES[data.kind] ? Object.entries(sh.pins) : [];
   const toggle = () => {
     if (data.kind === 'switch') setParam(id, 'closed', !data.params.closed);
