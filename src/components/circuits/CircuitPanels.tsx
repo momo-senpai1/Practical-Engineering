@@ -7,6 +7,7 @@ import { formatSI, parseSI } from '@/engine/circuits/units';
 import { t, useLang } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { EXAMPLES, useCircuit, useCircuitSolution, useTransient, type CNode, type ExampleId } from '@/store/circuitStore';
+import { SheetManager } from '@/components/SheetManager';
 import { CIRCUIT_DND, SymbolIcon, valueLabel } from './CircuitCanvas';
 import { BodeTab, SimplifyTab } from './AnalysisTabs';
 import { LineChartBox } from '@/components/heat/charts';
@@ -47,6 +48,8 @@ const si = (v: number, u: string, d = 3) => formatSI(v, u, d, comma());
 export function CircuitPalette() {
   const load = useCircuit((s) => s.load);
   const clear = useCircuit((s) => s.clear);
+  const snapshot = useCircuit((s) => s.snapshot);
+  const loadSheet = useCircuit((s) => s.loadSheet);
   const onDragStart = (e: DragEvent, kind: CKind) => {
     e.dataTransfer.setData(CIRCUIT_DND, kind);
     e.dataTransfer.effectAllowed = 'move';
@@ -77,7 +80,10 @@ export function CircuitPalette() {
           </div>
         ))}
       </div>
-      <div className="mt-auto space-y-1 border-t border-white/[0.05] p-3">
+      <div className="mt-auto border-t border-white/[0.05] p-3">
+        <SheetManager app="circuit" current={snapshot} apply={loadSheet} />
+      </div>
+      <div className="space-y-1 border-t border-white/[0.05] p-3">
         <p className="tag mb-1 text-plant-400">{t('Examples')}</p>
         {(Object.keys(EXAMPLES) as ExampleId[]).map((id) => (
           <button

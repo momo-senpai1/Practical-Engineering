@@ -44,7 +44,7 @@ export function useSimulation() {
 // ---------------------------------------------------------------------------
 // block shapes
 
-const SIZE: Record<SimBlockData['kind'], [number, number]> = { source: [64, 44], sum: [36, 36], gain: [60, 44], tf: [132, 60], sat: [60, 44], scope: [84, 64] };
+const SIZE: Record<SimBlockData['kind'], [number, number]> = { source: [64, 44], sum: [36, 36], gain: [60, 44], tf: [132, 60], filter: [120, 56], sat: [60, 44], scope: [84, 64] };
 export const blockSize = (d: SimBlockData) => SIZE[d.kind];
 
 function WaveIcon({ wave }: { wave: SimBlockData['wave'] }) {
@@ -137,6 +137,21 @@ function BlockNode({ id, data: d, selected }: NodeProps<SNode>) {
         </div>
         <div className="mt-1 truncate font-mono text-[8px] text-plant-400">
           {s.kind === 'custom' ? t('custom') : info.params.map((p) => `${PARAM_SHORT[p] ?? p}=${nf((s[p] as number) ?? 0, 3)}`).join(' ')}
+        </div>
+      </div>
+    );
+  } else if (d.kind === 'filter') {
+    const ft = d.ftype ?? 'lowpass';
+    const curve: Record<string, string> = { lowpass: 'M3 8H18Q24 8 30 22H37', highpass: 'M3 22H10Q16 8 22 8H37', bandpass: 'M3 22Q12 22 16 8H24Q28 22 37 22', bandstop: 'M3 8H14Q18 8 20 22Q22 8 26 8H37' };
+    const AP: Record<string, string> = { butterworth: 'Butterworth', chebyshev: 'Chebyshev', bessel: 'Bessel' };
+    body = (
+      <div className={cn(box, 'flex flex-col items-center justify-center rounded px-1')}>
+        <svg viewBox="0 0 40 28" className="h-6 w-10 fill-none stroke-[1.6]">
+          <path d="M3 25H37" className="stroke-plant-500" strokeWidth={0.8} />
+          <path d={curve[ft]} className="stroke-signal-liquid" />
+        </svg>
+        <div className="mt-0.5 truncate font-mono text-[8px] text-plant-400">
+          {AP[d.approx ?? 'butterworth']} n={d.order ?? 2} · {nf(d.fc ?? 1, 3)} Hz
         </div>
       </div>
     );

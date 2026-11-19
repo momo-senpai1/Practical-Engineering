@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { linearTF, simulate, type SimBlock, type SimWire } from '../blocksim';
+import { freq } from '../poly';
+import { filterTF, linearTF, openLoopTF, simulate, type SimBlock, type SimWire } from '../blocksim';
 
 const loop = (ctrl: SimBlock['data'], plant: SimBlock['data']): { b: SimBlock[]; w: SimWire[] } => ({
   b: [
@@ -85,5 +86,18 @@ describe('block diagram simulator', () => {
     w2.push({ source: 'c', target: 's2', targetHandle: 'in0' }, { source: 'z', target: 's2', targetHandle: 'in1' }, { source: 's2', target: 'g', targetHandle: 'in0' });
     const lin = linearTF(b, w2, 'z', 'g');
     expect(lin.T!.num[0]! / lin.T!.den[0]!).toBeCloseTo(0.2, 6);
+  });
+  it('open loop cut at the summing point', () => {
+    const { b, w } = loop({ kind: 'gain', name: 'R', K: 4 }, { kind: 'tf', name: 'G', spec: { kind: 'PT1', K: 1, T: 1 } });
+    const L = openLoopTF(b, w, 's');
+    expect(L.ok).toBe(true);
+    expect(L.T!.num[0]! / L.T!.den[0]!).toBeCloseTo(4, 6);
+    expect(L.T!.den.length).toBe(2);
+  });
+  it('filter block: Butterworth low-pass −3 dB at f_c, simulated step settles at 1', () => {
+    const d = { kind: 'filter' as const, name: 'F', approx: 'butterworth' as const, ftype: 'lowpass' as const, order: 4, fc: 2 };
+    expect(20 * Math.log10(freq(filterTF(d), 2 * Math.PI * 2).mag)).toBeCloseTo(-3.01, 1);
+    const r = simulate([{ id: 'u', data: { kind: 'source', name: 'u', wave: 'step' } }, { id: 'f', data: d }], [{ source: 'u', target: 'f', targetHandle: 'in0' }], 5, 2000);
+    expect(r.y.get('f')!.at(-1)!).toBeCloseTo(1, 3);
   });
 });

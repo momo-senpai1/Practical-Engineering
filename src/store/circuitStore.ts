@@ -44,6 +44,8 @@ interface CircuitState {
   remove: (id: string) => void;
   load: (name: ExampleId) => void;
   clear: () => void;
+  snapshot: () => unknown;
+  loadSheet: (p: unknown) => void;
 }
 
 const safe: StateStorage = {
@@ -392,6 +394,17 @@ export const useCircuit = create<CircuitState>()(
         set({ ...b, analysis: { ...get().analysis, mode: 'dc', ...EXAMPLES[id].analysis }, loadSeq: get().loadSeq + 1 });
       },
       clear: () => set({ nodes: [], edges: [] }),
+      snapshot: () => ({
+        analysis: get().analysis,
+        nodes: get().nodes.map(({ id, type, position, data }) => ({ id, type, position, data })),
+        edges: get().edges.map(({ id, type, source, sourceHandle, target, targetHandle }) => ({ id, type, source, sourceHandle, target, targetHandle })),
+      }),
+      loadSheet: (p) => {
+        const s = p as { nodes?: CNode[]; edges?: CEdge[]; analysis?: Analysis };
+        if (!Array.isArray(s.nodes) || !Array.isArray(s.edges)) return;
+        dcStates = {};
+        set({ nodes: structuredClone(s.nodes).map((n) => ({ ...n, selected: false })), edges: structuredClone(s.edges), analysis: { ...get().analysis, ...s.analysis }, loadSeq: get().loadSeq + 1, lastRotate: null });
+      },
     }),
     {
       name: 'ts-circuit',
