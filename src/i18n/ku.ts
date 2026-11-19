@@ -6,6 +6,14 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Oscilloscope": "Osîloskop",
+  "Transistors": "Transîstor",
+  "Diodes": "Dîyod",
+  "Logic gates": "Deriyên mantiqî",
+  "Flip-flops": "Flip-flop",
+  "Switches & relays": "Guhêrbar û rêle",
+  "Transformer": "Transformator",
+  "Battery": "Pîl",
   "Heat & Mass Transfer": "Veguhestina germ û madeyê",
   "Conduction": "Gihandina germê",
   "Fin / rod": "Per / çov",

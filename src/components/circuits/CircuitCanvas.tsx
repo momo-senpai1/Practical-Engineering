@@ -1,4 +1,4 @@
-/** Circuit symbols (IEC style), component node and canvas. */
+/** Circuit component node, wire edge and canvas. */
 
 import {
   Background,
@@ -9,206 +9,183 @@ import {
   Position,
   ReactFlow,
   SmoothStepEdge,
+  useNodesInitialized,
   useReactFlow,
+  useUpdateNodeInternals,
   type EdgeProps,
   type NodeProps,
 } from '@xyflow/react';
-import { useCallback, type DragEvent } from 'react';
+import { useCallback, useEffect, type DragEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import type { CKind, CParams } from '@/engine/circuits/solver';
+import { DEVICES, type CKind, type CParams } from '@/engine/circuits/devices';
 import { formatSI } from '@/engine/circuits/units';
 import { t, useLang } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { useCircuit, useCircuitSolution, type CNode, type Rot } from '@/store/circuitStore';
+import { shapeOf } from './shapes';
 
 export const CIRCUIT_DND = 'application/x-circuit-part';
 
-const LED_COLOR: Record<NonNullable<CParams['color']>, string> = {
-  red: '#ef4444',
-  green: '#22c55e',
-  blue: '#3b82f6',
-  yellow: '#facc15',
-  white: '#f8fafc',
-};
-
-/** Symbol in a 96×40 box, terminals at (0,20) = pin a and (96,20) = pin b. */
-export function Symbol({ kind, params, level = 0, rot = 0 }: { kind: CKind; params?: CParams; level?: number; rot?: number }) {
-  const lead = (x1: number, x2: number) => <path d={`M${x1} 20H${x2}`} />;
-  const glow = Math.max(0, Math.min(1, level));
-  switch (kind) {
-    case 'resistor':
-      return (
-        <>
-          {lead(0, 24)}
-          <rect x="24" y="12" width="48" height="16" rx="1" />
-          {lead(72, 96)}
-        </>
-      );
-    case 'vsource':
-      return (
-        <>
-          {lead(0, 34)}
-          <circle cx="48" cy="20" r="14" />
-          <path d="M34 20H62" />
-          {lead(62, 96)}
-          <text x="26" y="10" className="fill-current stroke-none text-[10px]">+</text>
-          <text x="66" y="10" className="fill-current stroke-none text-[10px]">−</text>
-        </>
-      );
-    case 'isource':
-      return (
-        <>
-          {lead(0, 34)}
-          <circle cx="48" cy="20" r="14" />
-          <path d="M48 6V34" />
-          {lead(62, 96)}
-          <path d="M40 20H22m5-4-5 4 5 4" />
-        </>
-      );
-    case 'diode':
-    case 'led': {
-      const c = kind === 'led' ? LED_COLOR[params?.color ?? 'red'] : undefined;
-      return (
-        <>
-          {lead(0, 36)}
-          <path d="M36 8L60 20 36 32z" style={c ? { fill: c, fillOpacity: 0.12 + 0.8 * glow } : undefined} />
-          <path d="M60 8V32" />
-          {lead(60, 96)}
-          {kind === 'led' && (
-            <g style={{ stroke: c }}>
-              <path d="M52 6l8-6m-4 0h4v4M60 10l8-6m-4 0h4v4" />
-            </g>
-          )}
-        </>
-      );
-    }
-    case 'lamp':
-      return (
-        <>
-          {lead(0, 34)}
-          <circle cx="48" cy="20" r="14" style={{ fill: '#facc15', fillOpacity: 0.85 * glow }} />
-          <path d="M38 10l20 20M58 10L38 30" />
-          {lead(62, 96)}
-        </>
-      );
-    case 'switch':
-      return (
-        <>
-          {lead(0, 30)}
-          <circle cx="32" cy="20" r="2" />
-          {params?.closed ? <path d="M32 20L64 18" /> : <path d="M32 20L60 4" />}
-          <circle cx="64" cy="20" r="2" />
-          {lead(66, 96)}
-        </>
-      );
-    case 'capacitor':
-      return (
-        <>
-          {lead(0, 44)}
-          <path d="M44 6V34M52 6V34" />
-          {lead(52, 96)}
-        </>
-      );
-    case 'inductor':
-      return (
-        <>
-          {lead(0, 24)}
-          <rect x="24" y="13" width="48" height="14" className="fill-current" />
-          {lead(72, 96)}
-        </>
-      );
-    case 'ammeter':
-    case 'voltmeter':
-      return (
-        <>
-          {lead(0, 34)}
-          <circle cx="48" cy="20" r="14" />
-          <text x="48" y="25" textAnchor="middle" transform={`rotate(${-rot} 48 20)`} className="fill-current stroke-none text-[14px] font-semibold">
-            {kind === 'ammeter' ? 'A' : 'V'}
-          </text>
-          {lead(62, 96)}
-        </>
-      );
-    case 'ground':
-      return (
-        <>
-          <path d="M48 0V20M32 20H64M38 27H58M44 34H52" />
-        </>
-      );
-  }
+/** Palette / inspector icon: the symbol scaled into a small box. */
+export function SymbolIcon({ kind, params = {}, className }: { kind: CKind; params?: CParams; className?: string }) {
+  const sh = shapeOf(kind, params);
+  return (
+    <svg viewBox={`-2 -2 ${sh.w + 4} ${sh.h + 4}`} className={cn('fill-none stroke-[2.2]', className)} aria-hidden>
+      {sh.draw(params, {})}
+    </svg>
+  );
 }
 
-const POS: Record<Rot, [Position, Position]> = {
-  0: [Position.Left, Position.Right],
-  90: [Position.Top, Position.Bottom],
-  180: [Position.Right, Position.Left],
-  270: [Position.Bottom, Position.Top],
-};
+const comma = () => useLang.getState().lang !== 'en';
 
 export function valueLabel(kind: CKind, p: CParams): string {
-  const comma = useLang.getState().lang !== 'en';
+  const c = comma();
+  const f = (v: number | undefined, u: string) => formatSI(v ?? 0, u, 3, c);
   switch (kind) {
     case 'resistor':
-      return formatSI(p.R ?? 0, 'Ω', 3, comma);
+    case 'speaker':
+      return f(p.R, 'Ω');
+    case 'pot':
+      return `${f(p.R, 'Ω')} · ${Math.round((p.pos ?? 0.5) * 100)} %`;
     case 'vsource':
-      return formatSI(p.V ?? 0, 'V', 3, comma);
+      return f(p.V, 'V');
+    case 'battery':
+      return `${f(p.V, 'V')} · r ${f(p.r, 'Ω')}`;
+    case 'acsource':
+      return `${f(p.amp, 'V')} · ${f(p.freq, 'Hz')}`;
     case 'isource':
-      return formatSI(p.I ?? 0, 'A', 3, comma);
+      return f(p.I, 'A');
     case 'led':
-      return `${formatSI(p.Vf ?? 2, 'V', 3, comma)} · ${formatSI(p.Inom ?? 0.02, 'A', 3, comma)}`;
+      return `${f(p.Vf, 'V')} · ${f(p.Inom, 'A')}`;
     case 'lamp':
-      return `${formatSI(p.Vnom ?? 12, 'V', 3, comma)} / ${formatSI(p.Pnom ?? 5, 'W', 3, comma)}`;
+      return `${f(p.Vnom, 'V')} / ${f(p.Pnom, 'W')}`;
     case 'capacitor':
-      return formatSI(p.C ?? 0, 'F', 3, comma);
+      return f(p.C, 'F');
     case 'inductor':
-      return formatSI(p.L ?? 0, 'H', 3, comma);
+      return f(p.L, 'H');
+    case 'transformer':
+      return `1 : ${p.ratio ?? 0.1}`;
+    case 'fuse':
+      return f(p.rating, 'A');
+    case 'zener':
+      return `U_Z ${f(p.Vz, 'V')}`;
+    case 'ldr':
+    case 'photodiode':
+      return `${Math.round((p.light ?? 0.5) * 100)} % ${t('light')}`;
+    case 'thermistor':
+      return `${p.T ?? 25} °C`;
     case 'switch':
       return t(p.closed ? 'closed' : 'open');
+    case 'npn':
+    case 'pnp':
+      return `β ${p.beta ?? 100}`;
+    case 'vcvs':
+    case 'cccs':
+      return `× ${p.gain ?? 10}`;
+    case 'vccs':
+      return `${f(p.gain, 'S')}`;
+    case 'ccvs':
+      return `${f(p.gain, 'Ω')}`;
+    case 'regulator':
+      return `${p.Vreg ?? 5} V`;
+    case 'clock':
+      return f(p.freq, 'Hz');
+    case 'relay':
+      return `${f(p.Rcoil, 'Ω')}`;
     default:
       return '';
   }
 }
 
+const SIDE: Position[] = [Position.Left, Position.Top, Position.Right, Position.Bottom];
+
+/** Rotate a pin position (x, y) in a w×h box clockwise by rot. */
+function rotPin(x: number, y: number, w: number, h: number, rot: Rot): [number, number] {
+  if (rot === 90) return [h - y, x];
+  if (rot === 180) return [w - x, h - y];
+  if (rot === 270) return [y, w - x];
+  return [x, y];
+}
+
+const TOGGLE: readonly CKind[] = ['switch', 'spdt', 'dpdt', 'logicIn'];
+const MOMENTARY: readonly CKind[] = ['pushNO', 'pushNC'];
+
 function CompNode({ id, data, selected }: NodeProps<CNode>) {
   const { result } = useCircuitSolution();
-  const toggle = useCircuit((s) => s.setParam);
+  const setParam = useCircuit((s) => s.setParam);
+  const updateInternals = useUpdateNodeInternals();
   const r = result.comps.get(id);
-  const comma = useLang.getState().lang !== 'en';
-  const vertical = data.rot === 90 || data.rot === 270;
-  const isGround = data.kind === 'ground';
-  const [pa, pb] = POS[data.rot];
-  const w = isGround ? 60 : vertical ? 40 : 96;
-  const h = isGround ? 40 : vertical ? 96 : 40;
+  const c = comma();
+  const sh = shapeOf(data.kind, data.params);
+  const rot = data.kind === 'ground' ? 0 : data.rot;
+  const vertical = rot === 90 || rot === 270;
+  const W = vertical ? sh.h : sh.w;
+  const Hh = vertical ? sh.w : sh.h;
+  useEffect(() => updateInternals(id), [id, rot, sh.w, sh.h, updateInternals]);
+  const pins = DEVICES[data.kind] ? Object.entries(sh.pins) : [];
+  const toggle = () => {
+    if (data.kind === 'switch') setParam(id, 'closed', !data.params.closed);
+    else setParam(id, 'on', !data.params.on);
+  };
+  const k = data.kind;
   const reading =
-    r && result.ok && !isGround
-      ? data.kind === 'voltmeter'
-        ? formatSI(r.V, 'V', 4, comma)
-        : data.kind === 'ammeter'
-          ? formatSI(r.I, 'A', 4, comma)
-          : `${formatSI(Math.abs(r.I), 'A', 3, comma)} · ${formatSI(Math.abs(r.V), 'V', 3, comma)}`
+    r && result.ok && k !== 'ground'
+      ? k === 'voltmeter'
+        ? formatSI(r.V, 'V', 4, c)
+        : k === 'ammeter'
+          ? formatSI(r.I, 'A', 4, c)
+          : k === 'probe'
+            ? formatSI(r.V, 'V', 4, c)
+            : r.info && !['resistor', 'lamp', 'led', 'diode'].includes(k)
+              ? r.info.split(' · ')[0]!
+              : pins.length === 2
+                ? `${formatSI(Math.abs(r.I), 'A', 3, c)} · ${formatSI(Math.abs(r.V), 'V', 3, c)}`
+                : ''
       : '';
   return (
-    <div className={cn('relative rounded-md', selected && 'ring-1 ring-signal-liquid/60')} style={{ width: w, height: h }} onDoubleClick={() => data.kind === 'switch' && toggle(id, 'closed', !data.params.closed)}>
+    <div className={cn('relative rounded-md', selected && 'ring-1 ring-signal-liquid/60')} style={{ width: W, height: Hh }}>
       <svg
-        viewBox={isGround ? '18 0 60 40' : '0 0 96 40'}
-        className={cn('absolute left-1/2 top-1/2 fill-none stroke-[1.6] text-plant-200', r?.warn ? 'stroke-signal-alarm' : 'stroke-plant-200')}
-        style={{ width: isGround ? 60 : 96, height: 40, transform: `translate(-50%,-50%) rotate(${isGround ? 0 : data.rot}deg)` }}
+        viewBox={`0 0 ${sh.w} ${sh.h}`}
+        className={cn('absolute left-1/2 top-1/2 fill-none stroke-[1.6] text-plant-200', r?.warn ? 'stroke-signal-alarm text-signal-alarm' : 'stroke-plant-200')}
+        style={{ width: sh.w, height: sh.h, transform: `translate(-50%,-50%) rotate(${rot}deg)`, overflow: 'visible' }}
         aria-hidden
       >
-        <Symbol kind={data.kind} params={data.params} level={r?.level} rot={data.rot} />
+        {sh.draw(data.params, { level: r?.level, logic: k === 'relay' ? r?.info?.startsWith('energised') : r?.logic })}
       </svg>
-      {isGround ? (
-        <Handle type="source" position={Position.Top} id="a" />
-      ) : (
-        <>
-          <Handle type="source" position={pa} id="a" />
-          <Handle type="source" position={pb} id="b" />
-        </>
+      {(TOGGLE.includes(k) || MOMENTARY.includes(k)) && (
+        <button
+          type="button"
+          aria-label={t('Toggle {name}', { name: data.name })}
+          className="nodrag absolute inset-[18%] cursor-pointer rounded hover:bg-signal-vapor/10"
+          onClick={TOGGLE.includes(k) ? toggle : undefined}
+          onPointerDown={MOMENTARY.includes(k) ? () => setParam(id, 'on', true) : undefined}
+          onPointerUp={MOMENTARY.includes(k) ? () => setParam(id, 'on', false) : undefined}
+          onPointerLeave={MOMENTARY.includes(k) ? () => data.params.on && setParam(id, 'on', false) : undefined}
+        />
       )}
-      {!isGround && (
-        <div className={cn('pointer-events-none absolute whitespace-nowrap font-mono text-[9px] leading-[12px]', vertical ? 'left-full top-1/2 ml-2 -translate-y-1/2' : 'left-1/2 top-full -translate-x-1/2 text-center')}>
+      {pins.map(([pin, [x, y]]) => {
+        const [px, py] = rotPin(x, y, sh.w, sh.h, rot);
+        const side = px <= 0.5 ? 0 : py <= 0.5 ? 1 : px >= W - 0.5 ? 2 : 3;
+        return (
+          <Handle
+            key={pin}
+            type="source"
+            id={pin}
+            position={SIDE[side]!}
+            title={pin}
+            style={{ left: px, top: py, right: 'auto', bottom: 'auto', transform: 'translate(-50%,-50%)' }}
+          />
+        );
+      })}
+      {k !== 'ground' && (
+        <div
+          className={cn(
+            'pointer-events-none absolute whitespace-nowrap font-mono text-[9px] leading-[12px]',
+            vertical || pins.length > 2 ? 'left-full top-1/2 ml-2 -translate-y-1/2' : 'left-1/2 top-full -translate-x-1/2 text-center',
+          )}
+        >
           <div className="font-semibold text-plant-100">
-            {data.name} <span className="font-normal text-plant-400">{valueLabel(data.kind, data.params)}</span>
+            {data.name} <span className="font-normal text-plant-400">{valueLabel(k, data.params)}</span>
           </div>
           {reading && <div className={r?.warn ? 'text-signal-alarm' : 'text-signal-vapor'}>{reading}</div>}
         </div>
@@ -223,13 +200,19 @@ function WireEdge(props: EdgeProps) {
 
 const nodeTypes = { ccomp: CompNode };
 const edgeTypes = { wire: WireEdge };
-const KINDS: readonly string[] = ['resistor', 'vsource', 'isource', 'diode', 'led', 'lamp', 'switch', 'capacitor', 'inductor', 'ammeter', 'voltmeter', 'ground'];
 
 export function CircuitCanvas() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, addComponent } = useCircuit(
     useShallow((s) => ({ nodes: s.nodes, edges: s.edges, onNodesChange: s.onNodesChange, onEdgesChange: s.onEdgesChange, onConnect: s.onConnect, addComponent: s.addComponent })),
   );
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  const loadSeq = useCircuit((s) => s.loadSeq);
+  const initialized = useNodesInitialized();
+  useEffect(() => {
+    if (!initialized) return;
+    const id = requestAnimationFrame(() => fitView({ padding: 0.2, maxZoom: 1.2 }));
+    return () => cancelAnimationFrame(id);
+  }, [initialized, loadSeq, fitView]);
   const onDragOver = useCallback((e: DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
@@ -238,7 +221,7 @@ export function CircuitCanvas() {
     (e: DragEvent) => {
       e.preventDefault();
       const kind = e.dataTransfer.getData(CIRCUIT_DND);
-      if (!KINDS.includes(kind)) return;
+      if (!(kind in DEVICES)) return;
       addComponent(kind as CKind, screenToFlowPosition({ x: e.clientX - 48, y: e.clientY - 20 }));
     },
     [addComponent, screenToFlowPosition],
@@ -262,15 +245,15 @@ export function CircuitCanvas() {
         snapToGrid
         snapGrid={[10, 10]}
         fitView
-        fitViewOptions={{ padding: 0.25 }}
-        minZoom={0.3}
+        fitViewOptions={{ padding: 0.2, maxZoom: 1.2 }}
+        minZoom={0.2}
         maxZoom={3}
         proOptions={{ hideAttribution: true }}
       >
         <Background id="dots" variant={BackgroundVariant.Dots} gap={20} size={1.2} color="rgba(148,163,184,0.18)" />
         <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
-      <div className="pointer-events-none absolute left-3 top-3 font-mono text-[9px] tracking-[0.2em] text-plant-500">{t('CIRCUIT · DC OPERATING POINT')}</div>
+      <div className="pointer-events-none absolute left-3 top-3 font-mono text-[9px] tracking-[0.2em] text-plant-500">{t('CIRCUIT')}</div>
     </div>
   );
 }
