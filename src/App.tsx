@@ -21,6 +21,11 @@ const AbsorptionPage = lazy(() => import('@/pages/AbsorptionPage'));
 const EvaporationPage = lazy(() => import('@/pages/EvaporationPage'));
 const CrystallizationPage = lazy(() => import('@/pages/CrystallizationPage'));
 const DryingPage = lazy(() => import('@/pages/DryingPage'));
+const HomePage = lazy(() => import('@/pages/HomePage'));
+const CircuitsPage = lazy(() => import('@/pages/CircuitsPage'));
+const BeamPage = lazy(() => import('@/pages/mechanics/BeamPage'));
+const TrussPage = lazy(() => import('@/pages/mechanics/TrussPage'));
+const TorsionPage = lazy(() => import('@/pages/mechanics/TorsionPage'));
 
 export default function App() {
   const { route, params } = useRoute();
@@ -65,6 +70,16 @@ export default function App() {
                 <CrystallizationPage />
               ) : route === 'drying' ? (
                 <DryingPage />
+              ) : route === 'home' ? (
+                <HomePage />
+              ) : route === 'circuits' ? (
+                <CircuitsPage />
+              ) : route === 'beam' ? (
+                <BeamPage />
+              ) : route === 'truss' ? (
+                <TrussPage />
+              ) : route === 'torsion' ? (
+                <TorsionPage />
               ) : (
                 <DistillationLinesPage />
               )}

@@ -1,10 +1,68 @@
-# Thermal Separation — P&ID Simulator
+# Practical Engineering
 
-Browser-based, interactive P&ID / flowsheet simulator for thermal separation
-processes (distillation, extraction/absorption, crystallisation, chromatography).
+Browser-based simulators for the core engineering lectures. The start page
+(`#/`) leads to three areas:
 
-**Stack:** React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui · `@xyflow/react` · Zustand
-· Tremor + Recharts (analysis panel).
+| Area | Routes | What it does |
+|---|---|---|
+| **Thermal Separation** | `#/flowsheet`, `#/mccabe-thiele`, … | Flowsheet simulator and balance tasks, distillation, extraction, absorption, evaporation, crystallization, drying (described below) |
+| **Electrical Circuits** | `#/circuits` | DC circuit simulator |
+| **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
+
+**Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
+· Recharts · KaTeX.
+
+### Electrical Circuits (`engine/circuits/solver.ts`)
+
+Drag components onto the sheet and wire their terminals.
+
+- **Components:** voltage source, current source, ground, resistor (optional
+  power rating), lamp (hot resistance U²/P from its rating, brightness), capacitor
+  (open at DC), inductor (short at DC), switch, diode (Shockley equation), LED
+  (forward voltage and current, colour, brightness), ammeter and voltmeter.
+- **Editing:** every component can be named, rotated and given values with SI
+  prefixes (`4k7`, `10m`, `2,2µ`).
+- **Solver:** modified nodal analysis with Newton–Raphson and junction-voltage
+  limiting for diodes and LEDs.
+- **Results:**
+  - voltage, current, U/I and power for every component;
+  - node potentials;
+  - the nodal equation system typeset as a matrix;
+  - a power balance with a Kirchhoff check.
+- **Warnings:** overload, short circuit, a loop of ideal sources, floating
+  parts, a missing ground.
+
+### Mechanics (`engine/mechanics/`)
+
+Topics follow the usual Engineering Mechanics 1 and 2 syllabus (statics, then
+strength of materials):
+
+- **Beam (`beam.ts`):**
+  - pinned, roller and fixed supports, hinges (Gerber beams);
+  - point forces at any angle, point moments, uniform, trapezoidal and
+    triangular line loads;
+  - all supports and loads can be dragged along the beam.
+  - Reactions and the deflection come from Euler–Bernoulli finite elements
+    between the load points, with the curve inside each element added
+    analytically, so statically indeterminate beams are exact too.
+  - N/Q/M diagrams, bending stress for rectangle, circle, tube or I-section,
+    deflection curve.
+  - Degree of indeterminacy n = r − 3 − g, and the equilibrium equations with
+    numbers as the solution path.
+- **Truss (`truss.ts`):**
+  - draw nodes and bars on the canvas, set supports and loads;
+  - bar forces (tension/compression, zero-force members) and reactions by the
+    direct stiffness method;
+  - determinacy check 2k = s + r, mechanism detection, deformed shape;
+  - method of joints shown per node.
+- **Shaft (`torsion.ts`):**
+  - stepped solid or hollow segments, torques at the stations;
+  - clamped–free, or clamped–clamped solved with the compatibility condition;
+  - torque, shear stress τ = M_t/W_t and angle of twist φ = M_t·L/(G·I_p) per
+    segment, with the solution path;
+  - power-to-torque helper.
+
+---
 
 ## Run locally
 

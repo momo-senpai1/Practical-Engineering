@@ -1,7 +1,7 @@
 import { Moon, RotateCcw, Sun } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { navigate, type Route } from '@/lib/route';
+import { navigate, SECTION_OF, type Route, type Section } from '@/lib/route';
 import { useTheme } from '@/lib/theme';
 import { COMPONENTS } from '@/engine/components';
 import { useFlowsheet } from '@/store/flowsheetStore';
@@ -10,21 +10,35 @@ import { LANGS, t, useLang } from '@/i18n';
 
 type NavItem = { route: Route; label: string };
 type NavGroup = { label: string; items: NavItem[] };
-const NAV: (NavItem | NavGroup)[] = [
-  { route: 'flowsheet', label: 'Flowsheet' },
-  {
-    label: 'Distillation',
-    items: [
-      { route: 'mccabe-thiele', label: 'McCabe–Thiele' },
-      { route: 'batch', label: 'Batch distillation' },
-      { route: 'distillation-lines', label: 'Distillation lines' },
-    ],
-  },
-  { route: 'extraction', label: 'Extraction' },
-  { route: 'absorption', label: 'Absorption' },
-  { route: 'evaporation', label: 'Evaporation' },
-  { route: 'crystallization', label: 'Crystallization' },
-  { route: 'drying', label: 'Drying' },
+const NAV: Record<Section, (NavItem | NavGroup)[]> = {
+  thermal: [
+    { route: 'flowsheet', label: 'Flowsheet' },
+    {
+      label: 'Distillation',
+      items: [
+        { route: 'mccabe-thiele', label: 'McCabe–Thiele' },
+        { route: 'batch', label: 'Batch distillation' },
+        { route: 'distillation-lines', label: 'Distillation lines' },
+      ],
+    },
+    { route: 'extraction', label: 'Extraction' },
+    { route: 'absorption', label: 'Absorption' },
+    { route: 'evaporation', label: 'Evaporation' },
+    { route: 'crystallization', label: 'Crystallization' },
+    { route: 'drying', label: 'Drying' },
+  ],
+  circuits: [{ route: 'circuits', label: 'Circuit simulator' }],
+  mechanics: [
+    { route: 'beam', label: 'Beam' },
+    { route: 'truss', label: 'Truss' },
+    { route: 'torsion', label: 'Shaft & torsion' },
+  ],
+};
+
+export const SECTIONS: { id: Section; label: string; home: Route }[] = [
+  { id: 'thermal', label: 'Thermal Separation', home: 'flowsheet' },
+  { id: 'circuits', label: 'Electrical Circuits', home: 'circuits' },
+  { id: 'mechanics', label: 'Mechanics', home: 'beam' },
 ];
 
 const tab = (active: boolean) =>
@@ -67,26 +81,28 @@ function Group({ g, route }: { g: NavGroup; route: Route }) {
 
 export function AppHeader({ route }: { route: Route }) {
   const mode = useBalance((s) => s.mode);
+  const section = SECTION_OF(route);
   return (
-    <header className="glass relative z-30 flex h-11 shrink-0 items-center gap-5 px-4">
-      <div className="flex items-center gap-2.5">
+    <header className="glass relative z-30 flex h-11 shrink-0 items-center gap-4 px-4">
+      <button type="button" onClick={() => navigate('home')} className="flex items-center gap-2.5" aria-label={t('Practical Engineering — home')}>
         <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-signal-liquid stroke-[1.5]" aria-hidden>
-          <rect x="8" y="2" width="8" height="20" rx="4" />
-          <path d="M8 8h5M16 12h-5M8 16h5" />
+          <path d="M12 2l8.5 5v10L12 22l-8.5-5V7z" />
+          <path d="M12 8v8M8 10l8 4M16 10l-8 4" />
         </svg>
-        <span className="text-sm font-semibold tracking-tight text-plant-100">Thermal Separation</span>
-      </div>
-
+        <span className="whitespace-nowrap text-sm font-semibold tracking-tight text-plant-100">Practical Engineering</span>
+      </button>
+      {section && <SectionMenu section={section} />}
       <nav aria-label={t('Modules')} className="flex min-w-0 items-center gap-0.5">
-        {NAV.map((n) =>
-          'items' in n ? (
-            <Group key={n.label} g={n} route={route} />
-          ) : (
-            <button key={n.route} type="button" onClick={() => navigate(n.route)} aria-current={route === n.route ? 'page' : undefined} className={tab(route === n.route)}>
-              {t(n.label)}
-            </button>
-          ),
-        )}
+        {section &&
+          NAV[section].map((n) =>
+            'items' in n ? (
+              <Group key={n.label} g={n} route={route} />
+            ) : (
+              <button key={n.route} type="button" onClick={() => navigate(n.route)} aria-current={route === n.route ? 'page' : undefined} className={tab(route === n.route)}>
+                {t(n.label)}
+              </button>
+            ),
+          )}
       </nav>
 
       <div className="ml-auto flex shrink-0 items-center gap-4">
@@ -95,6 +111,44 @@ export function AppHeader({ route }: { route: Route }) {
         <ThemeToggle />
       </div>
     </header>
+  );
+}
+
+/** Section chooser: Thermal Separation / Electrical Circuits / Mechanics. */
+function SectionMenu({ section }: { section: Section }) {
+  const [open, setOpen] = useState(false);
+  const cur = SECTIONS.find((s) => s.id === section)!;
+  return (
+    <div className="relative" onMouseLeave={() => setOpen(false)}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t('Section')}
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 whitespace-nowrap rounded border border-white/[0.08] px-2 py-1 text-[11px] text-plant-200 hover:border-signal-liquid/40"
+      >
+        <span className="text-plant-500">/</span> {t(cur.label)} ▾
+      </button>
+      {open && (
+        <div role="menu" className="glass absolute left-0 top-full z-50 mt-1 min-w-[200px] !bg-plant-900/95 p-1">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate(s.home);
+              }}
+              className={cn('block w-full rounded px-2.5 py-1.5 text-left text-[11px]', s.id === section ? 'text-signal-liquid' : 'text-plant-200 hover:bg-white/[0.05]')}
+            >
+              {t(s.label)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

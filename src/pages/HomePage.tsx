@@ -1,0 +1,100 @@
+import { ArrowRight } from 'lucide-react';
+import { t } from '@/i18n';
+import { navigate, type Route } from '@/lib/route';
+
+interface Area {
+  title: string;
+  lead: string;
+  icon: JSX.Element;
+  accent: string;
+  modules: { route: Route; label: string; desc: string }[];
+}
+
+const AREAS: Area[] = [
+  {
+    title: 'Thermal Separation',
+    lead: 'Distillation, extraction, absorption, evaporation, crystallization and drying with real phase equilibria, flowsheets and balance tasks.',
+    accent: 'var(--sig-liquid)',
+    icon: (
+      <>
+        <rect x="8" y="2" width="8" height="20" rx="4" />
+        <path d="M8 8h5M16 12h-5M8 16h5" />
+      </>
+    ),
+    modules: [
+      { route: 'flowsheet', label: 'Flowsheet', desc: 'Simulate a plant or solve a balance task step by step' },
+      { route: 'mccabe-thiele', label: 'McCabe–Thiele', desc: 'Stage construction, shortcuts, efficiencies' },
+      { route: 'extraction', label: 'Extraction', desc: 'Cross-, counter-current and Hunter–Nash' },
+      { route: 'absorption', label: 'Absorption', desc: 'Loading diagram, Kremser, packed height' },
+    ],
+  },
+  {
+    title: 'Electrical Circuits',
+    lead: 'Build DC circuits from sources, resistors, diodes, LEDs, lamps and switches; every node voltage, branch current and power is computed.',
+    accent: 'var(--sig-vapor)',
+    icon: <path d="M2 12h4l2-5 3 10 3-10 3 10 2-5h3" />,
+    modules: [{ route: 'circuits', label: 'Circuit simulator', desc: 'Nodal analysis with Kirchhoff checks and a power balance' }],
+  },
+  {
+    title: 'Mechanics',
+    lead: 'Statics and strength of materials as taught in Engineering Mechanics 1 and 2: support reactions, internal forces, deflection, trusses and torsion.',
+    accent: 'var(--sig-heat)',
+    icon: (
+      <>
+        <path d="M2 9h20" />
+        <path d="M4 9l-2 5h4zM20 9l-2 5h4z" />
+        <path d="M12 3v5m-2-2 2 2 2-2" />
+      </>
+    ),
+    modules: [
+      { route: 'beam', label: 'Beam', desc: 'Reactions, N/Q/M diagrams, bending stress, deflection curve' },
+      { route: 'truss', label: 'Truss', desc: 'Member forces, tension and compression, determinacy' },
+      { route: 'torsion', label: 'Shaft & torsion', desc: 'Torque diagram, shear stress, angle of twist' },
+    ],
+  },
+];
+
+export default function HomePage() {
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 px-2 py-8">
+      <div className="space-y-2 text-center">
+        <h1 className="text-3xl font-semibold tracking-tight text-plant-100">Practical Engineering</h1>
+        <p className="mx-auto max-w-2xl text-sm leading-relaxed text-plant-400">
+          {t('Interactive simulators for the core engineering lectures. Build the system, enter your values, and see every result with the way it was calculated.')}
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {AREAS.map((a) => (
+          <section key={a.title} className="glass flex flex-col p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="grid h-11 w-11 place-items-center rounded-lg border border-white/[0.08] bg-plant-950/60">
+                <svg viewBox="0 0 24 24" className="h-6 w-6 fill-none stroke-[1.5]" style={{ stroke: `rgb(${a.accent})` }} aria-hidden>
+                  {a.icon}
+                </svg>
+              </span>
+              <h2 className="text-lg font-semibold text-plant-100">{t(a.title)}</h2>
+            </div>
+            <p className="mb-4 text-[12px] leading-relaxed text-plant-400">{t(a.lead)}</p>
+            <ul className="mt-auto space-y-1">
+              {a.modules.map((m) => (
+                <li key={m.route}>
+                  <button
+                    type="button"
+                    onClick={() => navigate(m.route)}
+                    className="group flex w-full items-center gap-3 rounded-md border border-white/[0.05] px-3 py-2 text-left transition-colors hover:border-white/[0.12] hover:bg-white/[0.03]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[12px] font-medium text-plant-100">{t(m.label)}</span>
+                      <span className="block text-[10px] text-plant-500">{t(m.desc)}</span>
+                    </span>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-plant-500 transition-colors group-hover:text-signal-liquid" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
