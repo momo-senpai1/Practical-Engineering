@@ -29,6 +29,26 @@ const AREAS: Area[] = [
     ],
   },
   {
+    title: 'Heat & Mass Transfer',
+    lead: 'Conduction through walls, pipes and fins, transient heating, convection, radiation, heat exchangers and diffusion, with temperature and concentration profiles.',
+    accent: 'var(--sig-alarm)',
+    icon: (
+      <>
+        <path d="M4 20V8M9 20V4M14 20V10M19 20V6" />
+        <path d="M2 20h20" />
+      </>
+    ),
+    modules: [
+      { route: 'conduction', label: 'Conduction', desc: 'Layered wall, pipe, sphere: T(x), U-value, critical radius' },
+      { route: 'fin', label: 'Fin / rod', desc: 'T(x) along the fin, efficiency, effectiveness' },
+      { route: 'transient', label: 'Transient', desc: 'Biot, Fourier, plate/cylinder/sphere, semi-infinite body' },
+      { route: 'convection', label: 'Convection', desc: 'Re, Pr, Nu correlations, boundary layer' },
+      { route: 'radiation', label: 'Radiation', desc: 'Planck, gray exchange, shields, view factors' },
+      { route: 'exchanger', label: 'Heat exchanger', desc: 'ε–NTU, LMTD, temperature profiles' },
+      { route: 'diffusion', label: 'Mass transfer', desc: 'Fick, Stefan diffusion, c(x) profiles' },
+    ],
+  },
+  {
     title: 'Electrical Circuits',
     lead: 'Build DC circuits from sources, resistors, diodes, LEDs, lamps and switches; every node voltage, branch current and power is computed.',
     accent: 'var(--sig-vapor)',
@@ -56,14 +76,14 @@ const AREAS: Area[] = [
 
 export default function HomePage() {
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-2 py-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-2 py-8">
       <div className="space-y-2 text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-plant-100">Practical Engineering</h1>
         <p className="mx-auto max-w-2xl text-sm leading-relaxed text-plant-400">
           {t('Interactive simulators for the core engineering lectures. Build the system, enter your values, and see every result with the way it was calculated.')}
         </p>
       </div>
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
         {AREAS.map((a) => (
           <section key={a.title} className="glass flex flex-col p-5">
             <div className="mb-3 flex items-center gap-3">

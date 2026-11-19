@@ -27,6 +27,15 @@ const NAV: Record<Section, (NavItem | NavGroup)[]> = {
     { route: 'crystallization', label: 'Crystallization' },
     { route: 'drying', label: 'Drying' },
   ],
+  heat: [
+    { route: 'conduction', label: 'Conduction' },
+    { route: 'fin', label: 'Fin / rod' },
+    { route: 'transient', label: 'Transient' },
+    { route: 'convection', label: 'Convection' },
+    { route: 'radiation', label: 'Radiation' },
+    { route: 'exchanger', label: 'Heat exchanger' },
+    { route: 'diffusion', label: 'Mass transfer' },
+  ],
   circuits: [{ route: 'circuits', label: 'Circuit simulator' }],
   mechanics: [
     { route: 'beam', label: 'Beam' },
@@ -37,6 +46,7 @@ const NAV: Record<Section, (NavItem | NavGroup)[]> = {
 
 export const SECTIONS: { id: Section; label: string; home: Route }[] = [
   { id: 'thermal', label: 'Thermal Separation', home: 'flowsheet' },
+  { id: 'heat', label: 'Heat & Mass Transfer', home: 'conduction' },
   { id: 'circuits', label: 'Electrical Circuits', home: 'circuits' },
   { id: 'mechanics', label: 'Mechanics', home: 'beam' },
 ];

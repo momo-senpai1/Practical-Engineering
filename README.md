@@ -6,11 +6,56 @@ Browser-based simulators for the core engineering lectures. The start page
 | Area | Routes | What it does |
 |---|---|---|
 | **Thermal Separation** | `#/flowsheet`, `#/mccabe-thiele`, … | Flowsheet simulator and balance tasks, distillation, extraction, absorption, evaporation, crystallization, drying (described below) |
+| **Heat & Mass Transfer** | `#/conduction`, `#/fin`, `#/transient`, `#/convection`, `#/radiation`, `#/exchanger`, `#/diffusion` | Conduction, fins, transient conduction, convection, radiation, heat exchangers, diffusion |
 | **Electrical Circuits** | `#/circuits` | DC circuit simulator |
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
 · Recharts · KaTeX.
+
+### Heat & Mass Transfer (`engine/heat/`)
+
+Topics follow typical heat and mass transfer lectures (TU Darmstadt WuSt,
+TUM Heat and Mass Transfer, Uni Siegen):
+
+- **Conduction (`conduction.ts`):** plane wall, pipe or sphere with any number
+  of layers and convection on both sides (thermal-resistance method).
+  - Results: Q̇, U-value or k per length, interface temperatures.
+  - T(x) profile: linear, logarithmic or 1/r.
+  - Heat loss over the insulation thickness, critical insulation radius.
+- **Fin / rod:** pin or plate fin with an adiabatic, convective or infinitely
+  long tip.
+  - T(x) along the fin, Q̇, fin efficiency η, effectiveness ε, Biot check.
+  - Comparison of steel, aluminium and copper.
+- **Transient conduction (`transient.ts`):**
+  - plate, cylinder and sphere by the series solution: eigenvalues from the
+    characteristic equation, Bessel functions for the cylinder;
+  - lumped capacitance;
+  - semi-infinite body with a temperature step or convection at the surface;
+  - T(x) at several times and T(t) at the centre and the surface.
+- **Convection (`convection.ts`):** air and water property tables, then Re,
+  Pr, Gr/Ra, Nu, α and Q̇ for five cases:
+  - flat plate (laminar and turbulent combined), with local α(x) and boundary
+    layer δ(x);
+  - pipe flow (laminar developing flow, transition, Gnielinski);
+  - cylinder in cross flow (Churchill–Bernstein);
+  - free convection on a vertical plate and a horizontal cylinder
+    (Churchill–Chu).
+- **Radiation (`radiation.ts`):**
+  - Planck spectra, Wien, band fraction;
+  - gray two-surface exchange (plates, concentric cylinders and spheres, small
+    body in a large room);
+  - radiation shields, radiative heat transfer coefficient;
+  - analytical view factors.
+- **Heat exchanger (`exchanger.ts`):** co-current, counter-current and cross
+  flow by ε–NTU, with an LMTD check, temperature profiles along the area and
+  ε(NTU) curves.
+- **Mass transfer (`diffusion.ts`):**
+  - Fick's law through a layer;
+  - Stefan tube (one-sided diffusion vs equimolar counter-diffusion, with
+    profiles);
+  - Fuller diffusion coefficients;
+  - transient diffusion into a semi-infinite medium (penetration theory).
 
 ### Electrical Circuits (`engine/circuits/solver.ts`)
 

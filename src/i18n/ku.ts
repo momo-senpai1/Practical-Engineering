@@ -6,6 +6,13 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Heat & Mass Transfer": "Veguhestina germ û madeyê",
+  "Conduction": "Gihandina germê",
+  "Fin / rod": "Per / çov",
+  "Transient": "Nearam",
+  "Convection": "Konveksiyon",
+  "Radiation": "Tîrêjdan",
+  "Mass transfer": "Veguhestina madeyê",
   "Thermal Separation": "Veqetandina germî",
   "Electrical Circuits": "Çerxên elektrîkê",
   "Mechanics": "Mekanîk",
