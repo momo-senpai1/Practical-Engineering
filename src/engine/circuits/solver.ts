@@ -1,132 +1,81 @@
 /**
- * DC operating point of a circuit by modified nodal analysis (MNA).
+ * Circuit solver: modified nodal analysis over the device library.
  *
- * Unknowns: the potential of every net except ground, plus the current through
- * every element that fixes a voltage (voltage source, ammeter, inductor at DC).
- * Diodes and LEDs follow the Shockley equation and are linearised by
- * Newton–Raphson with junction-voltage limiting. Capacitors are open and
- * inductors short at DC.
+ * - DC operating point: capacitors open, inductors and transformer windings
+ *   short; Newton–Raphson for nonlinear devices; an outer fixed-point loop
+ *   re-evaluates behavioural parts (logic gates, flip-flops, relays, fuses,
+ *   555) until their states settle. Device states persist between solves, so
+ *   toggling a logic input that drives a clock pin clocks a flip-flop.
+ * - Transient: backward-Euler companion models for C, L and the coupled
+ *   transformer; Newton at every step; behavioural parts read the previous
+ *   step (one-step delay), which is how real gate propagation behaves.
  */
 
-export type CKind =
-  | 'resistor'
-  | 'vsource'
-  | 'isource'
-  | 'diode'
-  | 'led'
-  | 'lamp'
-  | 'switch'
-  | 'capacitor'
-  | 'inductor'
-  | 'ammeter'
-  | 'voltmeter'
-  | 'ground';
+import { deviceOf, pinsOf, type CComponent, type CKind, type CParams, type Env, type Stamper } from './devices';
 
-export interface CParams {
-  /** resistance [Ω] */
-  R?: number;
-  /** source voltage [V] (pin a = +) */
-  V?: number;
-  /** source current [A], flows out of pin a through the external circuit */
-  I?: number;
-  /** diode saturation current [A] and emission coefficient */
-  Is?: number;
-  n?: number;
-  /** LED: forward voltage at nominal current */
-  Vf?: number;
-  Inom?: number;
-  color?: 'red' | 'green' | 'blue' | 'yellow' | 'white';
-  /** lamp: nominal voltage and power */
-  Vnom?: number;
-  Pnom?: number;
-  /** resistor power rating [W] (optional) */
-  Pmax?: number;
-  closed?: boolean;
-  C?: number;
-  L?: number;
-}
-
-export interface CComponent {
-  id: string;
-  kind: CKind;
-  name: string;
-  params: CParams;
-}
+export * from './devices';
 
 export interface CWire {
   id: string;
   a: string; // "<component>:<pin>"
   b: string;
 }
-
 export interface CCircuit {
   components: CComponent[];
   wires: CWire[];
 }
 
-export const PINS: Record<CKind, string[]> = {
-  resistor: ['a', 'b'],
-  vsource: ['a', 'b'],
-  isource: ['a', 'b'],
-  diode: ['a', 'b'],
-  led: ['a', 'b'],
-  lamp: ['a', 'b'],
-  switch: ['a', 'b'],
-  capacitor: ['a', 'b'],
-  inductor: ['a', 'b'],
-  ammeter: ['a', 'b'],
-  voltmeter: ['a', 'b'],
-  ground: ['a'],
-};
-
-export const VT = 0.025852; // thermal voltage at 300 K
-const GMIN = 1e-12;
-const R_ON = 1e-6;
+/** Pins per kind for the default parameters (gates may have 3 inputs: use pinsOf). */
+export const PINS = new Proxy({} as Record<CKind, string[]>, { get: (_t, k: string) => pinsOf({ kind: k as CKind, params: {} }) });
 
 export interface CompResult {
   id: string;
-  /** voltage V(a) − V(b) */
   V: number;
-  /** current entering pin a and leaving pin b through the element */
   I: number;
-  /** power absorbed (negative = delivered) */
   P: number;
-  /** lamp / LED: relative brightness 0…∞ (1 = nominal) */
+  pinI: number[];
   level?: number;
-  warn?: 'overload' | 'reverse' | 'short';
+  warn?: 'overload' | 'reverse' | 'short' | 'blown';
+  info?: string;
+  logic?: boolean;
 }
+
+export type DeviceStates = Record<string, Record<string, number | boolean>>;
 
 export interface CircuitResult {
   ok: boolean;
   error?: 'empty' | 'singular' | 'noconverge';
-  /** net id per pin key */
   netOf: Map<string, number>;
   nets: number;
   ground: number;
   groundAssumed: boolean;
-  /** potential per net [V] */
   potentials: number[];
   comps: Map<string, CompResult>;
   floating: number[];
   iterations: number;
-  /** Σ absorbed power — zero up to round-off */
   powerBalance: number;
-  /** largest KCL residual [A] */
   kclResidual: number;
-  /** linear system at the solution (for display) */
+  /** behavioural parts did not settle (e.g. ring oscillator) */
+  oscillating?: boolean;
+  usedGmin?: boolean;
+  states: DeviceStates;
   system?: { labels: string[]; G: number[][]; rhs: number[] };
 }
 
-export const ledParams = (p: CParams) => {
-  const n = 2;
-  const Vf = p.Vf ?? 2;
-  const Inom = p.Inom ?? 0.02;
-  return { Is: Inom / (Math.exp(Vf / (n * VT)) - 1), n };
-};
-export const diodeParams = (c: CComponent) => (c.kind === 'led' ? ledParams(c.params) : { Is: c.params.Is ?? 2.52e-9, n: c.params.n ?? 1.752 });
-export const lampR = (p: CParams) => ((p.Vnom ?? 12) ** 2) / (p.Pnom ?? 5);
+interface Model {
+  comps: CComponent[];
+  netOf: Map<string, number>;
+  nets: number;
+  ground: number;
+  groundAssumed: boolean;
+  nodeIdx: number[]; // net → matrix index (−1 for ground)
+  nNodes: number;
+  branchBase: Map<string, number>;
+  N: number;
+  floating: number[];
+}
 
-function nets(c: CCircuit) {
+function build(c: CCircuit): Model {
   const parent = new Map<string, string>();
   const find = (k: string): string => {
     let r = k;
@@ -139,21 +88,53 @@ function nets(c: CCircuit) {
     }
     return r;
   };
-  for (const comp of c.components) for (const p of PINS[comp.kind]) parent.set(`${comp.id}:${p}`, `${comp.id}:${p}`);
+  for (const comp of c.components) for (const p of pinsOf(comp)) parent.set(`${comp.id}:${p}`, `${comp.id}:${p}`);
   for (const w of c.wires) {
     if (!parent.has(w.a) || !parent.has(w.b)) continue;
     const ra = find(w.a);
     const rb = find(w.b);
     if (ra !== rb) parent.set(ra, rb);
   }
+  // every ground symbol is the same node
+  const grounds = c.components.filter((x) => x.kind === 'ground');
+  for (let i = 1; i < grounds.length; i++) {
+    const ra = find(`${grounds[0]!.id}:a`);
+    const rb = find(`${grounds[i]!.id}:a`);
+    if (ra !== rb) parent.set(ra, rb);
+  }
   const idx = new Map<string, number>();
   const netOf = new Map<string, number>();
+  const count = new Map<number, number>();
   for (const k of parent.keys()) {
     const r = find(k);
     if (!idx.has(r)) idx.set(r, idx.size);
     netOf.set(k, idx.get(r)!);
+    count.set(idx.get(r)!, (count.get(idx.get(r)!) ?? 0) + 1);
   }
-  return { netOf, count: idx.size };
+  const nets = idx.size;
+  const comps = c.components.filter((x) => x.kind !== 'ground');
+  const gnd = c.components.find((x) => x.kind === 'ground');
+  let ground = gnd ? netOf.get(`${gnd.id}:a`)! : -1;
+  const groundAssumed = !gnd;
+  if (ground < 0) {
+    const src = c.components.find((x) => ['vsource', 'isource', 'battery', 'acsource'].includes(x.kind));
+    // with a source, its minus terminal is the reference; otherwise (pure logic) a virtual reference node
+    ground = src ? netOf.get(`${src.id}:b`)! : -1;
+  }
+  const nodeIdx: number[] = [];
+  let n = 0;
+  for (let k = 0; k < nets; k++) nodeIdx.push(k === ground ? -1 : n++);
+  const branchBase = new Map<string, number>();
+  let N = n;
+  for (const comp of comps) {
+    const b = deviceOf(comp).branches?.(comp.params) ?? 0;
+    if (b) {
+      branchBase.set(comp.id, N);
+      N += b;
+    }
+  }
+  const floating = [...count.entries()].filter(([net, k]) => k === 1 && net !== ground).map(([net]) => net);
+  return { comps, netOf, nets, ground, groundAssumed, nodeIdx, nNodes: n, branchBase, N, floating };
 }
 
 function solveDense(A: number[][], b: number[]): number[] | null {
@@ -180,247 +161,299 @@ function solveDense(A: number[][], b: number[]): number[] | null {
   return x;
 }
 
-/** Limit the change of a junction voltage per Newton step (SPICE pnjlim). */
-function pnjlim(vNew: number, vOld: number, nVt: number, vcrit: number) {
-  if (vNew > vcrit && Math.abs(vNew - vOld) > 2 * nVt) {
-    if (vOld > 0) {
-      const arg = 1 + (vNew - vOld) / nVt;
-      return arg > 0 ? vOld + nVt * Math.log(arg) : vcrit;
-    }
-    return nVt * Math.log(vNew / nVt);
-  }
-  return vNew;
+interface SolveCtx {
+  mode: 'dc' | 'tran';
+  t: number;
+  h: number;
+  xPrev: number[];
+  states: DeviceStates;
+  lim: Map<string, number>;
 }
 
-export function solveCircuit(c: CCircuit): CircuitResult {
-  const { netOf, count } = nets(c);
-  const empty: CircuitResult = {
+function envFor(m: Model, comp: CComponent, x: number[], ctx: SolveCtx): Env {
+  const node = (pin: string) => (pin === '' ? -1 : m.nodeIdx[m.netOf.get(`${comp.id}:${pin}`) ?? -1] ?? -1);
+  const base = m.branchBase.get(comp.id) ?? 0;
+  if (!ctx.states[comp.id]) ctx.states[comp.id] = {};
+  return {
+    mode: ctx.mode,
+    t: ctx.t,
+    h: ctx.h,
+    v: (p) => {
+      const i = node(p);
+      return i < 0 ? 0 : x[i]!;
+    },
+    vp: (p) => {
+      const i = node(p);
+      return i < 0 ? 0 : ctx.xPrev[i] ?? 0;
+    },
+    br: (k) => x[base + k] ?? 0,
+    brp: (k) => ctx.xPrev[base + k] ?? 0,
+    state: ctx.states[comp.id]!,
+    lim: ctx.lim,
+  };
+}
+
+function assemble(m: Model, x: number[], ctx: SolveCtx, gmin: boolean) {
+  const N = m.N;
+  const G = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+  const rhs = new Array<number>(N).fill(0);
+  for (const comp of m.comps) {
+    const node = (pin: string) => (pin === '' ? -1 : m.nodeIdx[m.netOf.get(`${comp.id}:${pin}`) ?? -1] ?? -1);
+    const base = m.branchBase.get(comp.id) ?? 0;
+    const add = (i: number, j: number, v: number) => {
+      if (i >= 0 && j >= 0) G[i]![j]! += v;
+    };
+    const s: Stamper = {
+      g: (a, b, g) => {
+        const i = node(a);
+        const j = node(b);
+        add(i, i, g);
+        add(j, j, g);
+        add(i, j, -g);
+        add(j, i, -g);
+      },
+      i: (a, b, J) => {
+        const i = node(a);
+        const j = node(b);
+        if (i >= 0) rhs[i]! -= J;
+        if (j >= 0) rhs[j]! += J;
+      },
+      gm: (a, b, cp, cn, g) => {
+        const i = node(a);
+        const j = node(b);
+        const p = node(cp);
+        const q = node(cn);
+        add(i, p, g);
+        add(i, q, -g);
+        add(j, p, -g);
+        add(j, q, g);
+      },
+      branch: (k, a, b) => {
+        const i = node(a);
+        const j = node(b);
+        add(i, base + k, 1);
+        add(j, base + k, -1);
+      },
+      rowV: (k, pin, coeff) => add(base + k, node(pin), coeff),
+      rowB: (k, k2, coeff) => add(base + k, base + k2, coeff),
+      rowRhs: (k, v) => {
+        rhs[base + k]! += v;
+      },
+    };
+    deviceOf(comp).stamp(s, comp, envFor(m, comp, x, ctx));
+  }
+  if (gmin) for (let i = 0; i < m.nNodes; i++) G[i]![i]! += 1e-9;
+  return { G, rhs };
+}
+
+function newton(m: Model, ctx: SolveCtx, x0: number[]): { x: number[]; it: number; gmin: boolean; sys: { G: number[][]; rhs: number[] } } | null {
+  const nonlinear = m.comps.some((c) => deviceOf(c).nonlinear);
+  for (const gmin of [false, true]) {
+    let x = [...x0];
+    let ok = false;
+    let sys = { G: [] as number[][], rhs: [] as number[] };
+    let it = 0;
+    for (; it < 200; it++) {
+      const before = new Map(ctx.lim);
+      sys = assemble(m, x, ctx, gmin);
+      // junction limiting must have settled too, not only the node voltages
+      let dl = 0;
+      for (const [k, v] of ctx.lim) dl = Math.max(dl, Math.abs(v - (before.get(k) ?? Infinity)));
+      const xn = solveDense(sys.G, sys.rhs);
+      if (!xn) break;
+      const dx = Math.max(0, ...xn.map((v, i) => Math.abs(v - x[i]!)));
+      x = xn;
+      if (!nonlinear || (it > 0 && dl < 1e-9 && dx < 1e-9 * Math.max(1, ...xn.map(Math.abs)))) {
+        ok = true;
+        break;
+      }
+    }
+    if (ok) return { x, it: it + 1, gmin, sys };
+  }
+  return null;
+}
+
+function results(m: Model, x: number[], ctx: SolveCtx) {
+  const potentials = Array.from({ length: m.nets }, (_, n) => (m.nodeIdx[n]! < 0 ? 0 : x[m.nodeIdx[n]!]!));
+  const comps = new Map<string, CompResult>();
+  let power = 0;
+  const kcl = new Array<number>(m.nets).fill(0);
+  for (const comp of m.comps) {
+    const e = envFor(m, comp, x, ctx);
+    const r = deviceOf(comp).measure(comp, e);
+    const pins = pinsOf(comp);
+    let P = 0;
+    pins.forEach((p, k) => {
+      const I = r.pinI[k] ?? 0;
+      P += e.v(p) * I;
+      const net = m.netOf.get(`${comp.id}:${p}`);
+      if (net !== undefined) kcl[net]! += I;
+    });
+    const V = r.V ?? (pins.length >= 2 ? e.v(pins[0]!) - e.v(pins[1]!) : e.v(pins[0]!));
+    const I = r.I ?? (r.pinI[0] ?? 0);
+    power += P;
+    comps.set(comp.id, { id: comp.id, V, I: Math.abs(I) < 1e-15 ? 0 : I, P: Math.abs(P) < 1e-18 ? 0 : P, pinI: r.pinI, level: r.level, warn: r.warn, info: r.info, logic: r.logic });
+  }
+  const kclResidual = Math.max(0, ...kcl.map((v, n) => (n === m.ground ? 0 : Math.abs(v))));
+  return { potentials, comps, powerBalance: power, kclResidual };
+}
+
+function clone(s: DeviceStates): DeviceStates {
+  return Object.fromEntries(Object.entries(s).map(([k, v]) => [k, { ...v }]));
+}
+
+function labels(m: Model) {
+  const out: string[] = [];
+  for (let n = 0; n < m.nets; n++) if (m.nodeIdx[n]! >= 0) out.push(`φ${n}`);
+  for (const comp of m.comps) {
+    const b = deviceOf(comp).branches?.(comp.params) ?? 0;
+    for (let k = 0; k < b; k++) out.push(`I_${comp.name}${b > 1 ? `,${k + 1}` : ''}`);
+  }
+  return out;
+}
+
+/** DC operating point. `prev` carries device states (flip-flops, relays, fuses) from the last solve. */
+export function solveCircuit(c: CCircuit, prev: DeviceStates = {}): CircuitResult {
+  const m = build(c);
+  const states = clone(prev);
+  const base: CircuitResult = {
     ok: false,
-    netOf,
-    nets: count,
-    ground: 0,
-    groundAssumed: false,
+    netOf: m.netOf,
+    nets: m.nets,
+    ground: m.ground,
+    groundAssumed: m.groundAssumed,
     potentials: [],
     comps: new Map(),
-    floating: [],
+    floating: m.floating,
     iterations: 0,
     powerBalance: 0,
     kclResidual: 0,
+    states,
   };
-  const active = c.components.filter((x) => x.kind !== 'ground');
-  if (!active.length) return { ...empty, error: 'empty' };
-
-  const pin = (comp: CComponent, p: string) => netOf.get(`${comp.id}:${p}`)!;
-  const gnd = c.components.find((x) => x.kind === 'ground');
-  let ground = gnd ? pin(gnd, 'a') : -1;
-  const groundAssumed = !gnd;
-  if (ground < 0) {
-    const vs = c.components.find((x) => x.kind === 'vsource' || x.kind === 'isource');
-    ground = vs ? pin(vs, 'b') : 0;
+  if (!m.comps.length) return { ...base, error: 'empty' };
+  const behavioural = m.comps.filter((x) => deviceOf(x).behavioural);
+  let x = new Array<number>(m.N).fill(0);
+  let xPrev = new Array<number>(m.N).fill(0);
+  let total = 0;
+  let oscillating = false;
+  let last: ReturnType<typeof newton> = null;
+  for (let outer = 0; outer < (behavioural.length ? 40 : 1); outer++) {
+    const ctx: SolveCtx = { mode: 'dc', t: 0, h: 1, xPrev, states, lim: new Map() };
+    // first pass: evaluate behavioural states from the initial guess so gates start consistent
+    const r = newton(m, ctx, x);
+    if (!r) return { ...base, error: 'singular' };
+    last = r;
+    total += r.it;
+    x = r.x;
+    if (!behavioural.length) break;
+    const uctx: SolveCtx = { ...ctx, xPrev: x };
+    let changed = false;
+    for (const comp of behavioural) if (deviceOf(comp).update!(comp, envFor(m, comp, x, uctx))) changed = true;
+    xPrev = x;
+    if (!changed) break;
+    if (outer === 39) oscillating = true;
   }
-
-  // node index for MNA (ground excluded)
-  const node = new Map<number, number>();
-  for (let n = 0; n < count; n++) if (n !== ground) node.set(n, node.size);
-  const branch = new Map<string, number>();
-  for (const comp of active) {
-    if (comp.kind === 'vsource' || comp.kind === 'ammeter' || comp.kind === 'inductor') branch.set(comp.id, node.size + branch.size);
-  }
-  const N = node.size + branch.size;
-
-  // floating nets: no conductive path to ground
-  const adj = new Map<number, Set<number>>();
-  const link = (a: number, b: number) => {
-    if (!adj.has(a)) adj.set(a, new Set());
-    if (!adj.has(b)) adj.set(b, new Set());
-    adj.get(a)!.add(b);
-    adj.get(b)!.add(a);
-  };
-  for (const comp of active) {
-    if (comp.kind === 'capacitor' || comp.kind === 'voltmeter' || comp.kind === 'isource' || (comp.kind === 'switch' && !comp.params.closed)) continue;
-    link(pin(comp, 'a'), pin(comp, 'b'));
-  }
-  const reach = new Set([ground]);
-  const stack = [ground];
-  while (stack.length) for (const nb of adj.get(stack.pop()!) ?? []) if (!reach.has(nb)) (reach.add(nb), stack.push(nb));
-  const floating = [...Array(count).keys()].filter((n) => !reach.has(n));
-
-  const nonlinear = active.filter((x) => x.kind === 'diode' || x.kind === 'led');
-  const vd = new Map(nonlinear.map((d) => [d.id, 0.6]));
-  let x: number[] = new Array(N).fill(0);
-  let iterations = 0;
-  let last: { G: number[][]; rhs: number[] } | null = null;
-
-  for (let it = 0; it < 300; it++) {
-    iterations = it + 1;
-    const G = Array.from({ length: N }, () => new Array<number>(N).fill(0));
-    const rhs = new Array<number>(N).fill(0);
-    const ni = (net: number) => (net === ground ? -1 : node.get(net)!);
-    const stampG = (a: number, b: number, g: number) => {
-      const i = ni(a);
-      const j = ni(b);
-      if (i >= 0) G[i]![i]! += g;
-      if (j >= 0) G[j]![j]! += g;
-      if (i >= 0 && j >= 0) {
-        G[i]![j]! -= g;
-        G[j]![i]! -= g;
-      }
-    };
-    /** current J flowing from a to b through the element */
-    const stampI = (a: number, b: number, J: number) => {
-      const i = ni(a);
-      const j = ni(b);
-      if (i >= 0) rhs[i]! -= J;
-      if (j >= 0) rhs[j]! += J;
-    };
-    const stampV = (a: number, b: number, k: number, V: number) => {
-      const i = ni(a);
-      const j = ni(b);
-      if (i >= 0) {
-        G[i]![k]! += 1;
-        G[k]![i]! += 1;
-      }
-      if (j >= 0) {
-        G[j]![k]! -= 1;
-        G[k]![j]! -= 1;
-      }
-      rhs[k] = V;
-    };
-    // tie floating nets to ground so the matrix stays regular (they read 0 V and are flagged)
-    for (const n of floating) if (n !== ground) G[node.get(n)!]![node.get(n)!]! += GMIN;
-    for (const comp of active) {
-      const a = pin(comp, 'a');
-      const b = pin(comp, 'b');
-      const p = comp.params;
-      switch (comp.kind) {
-        case 'resistor':
-          stampG(a, b, 1 / Math.max(p.R ?? 1000, 1e-9));
-          break;
-        case 'lamp':
-          stampG(a, b, 1 / Math.max(lampR(p), 1e-9));
-          break;
-        case 'switch':
-          if (p.closed) stampG(a, b, 1 / R_ON);
-          break;
-        case 'isource':
-          stampI(b, a, p.I ?? 0.01); // pushes I out of pin a into the circuit
-          break;
-        case 'vsource':
-          stampV(a, b, branch.get(comp.id)!, p.V ?? 0);
-          break;
-        case 'ammeter':
-        case 'inductor':
-          stampV(a, b, branch.get(comp.id)!, 0);
-          break;
-        case 'diode':
-        case 'led': {
-          const { Is, n } = diodeParams(comp);
-          const v = vd.get(comp.id)!;
-          const e = Math.exp(Math.min(v / (n * VT), 200));
-          const id = Is * (e - 1);
-          const gd = (Is * e) / (n * VT) + GMIN;
-          stampG(a, b, gd);
-          stampI(a, b, id - gd * v);
-          break;
-        }
-        default:
-          break; // capacitor, voltmeter: open at DC
-      }
-    }
-    const sol = solveDense(G, rhs);
-    if (!sol) return { ...empty, ground, groundAssumed, floating, error: 'singular' };
-    x = sol;
-    last = { G, rhs };
-    if (!nonlinear.length) break;
-    let maxDv = 0;
-    for (const d of nonlinear) {
-      const va = pin(d, 'a') === ground ? 0 : x[node.get(pin(d, 'a'))!]!;
-      const vb = pin(d, 'b') === ground ? 0 : x[node.get(pin(d, 'b'))!]!;
-      const { Is, n } = diodeParams(d);
-      const nVt = n * VT;
-      const vcrit = nVt * Math.log(nVt / (Math.SQRT2 * Is));
-      const old = vd.get(d.id)!;
-      const lim = pnjlim(va - vb, old, nVt, vcrit);
-      maxDv = Math.max(maxDv, Math.abs(lim - old));
-      vd.set(d.id, lim);
-    }
-    if (maxDv < 1e-9 && it > 0) break;
-    if (it === 299) return { ...empty, ground, groundAssumed, floating, iterations, error: 'noconverge' };
-  }
-
-  const potentials = Array.from({ length: count }, (_, n) => (n === ground ? 0 : x[node.get(n)!]!));
-  const comps = new Map<string, CompResult>();
-  let powerBalance = 0;
-  const kcl = new Array<number>(count).fill(0);
-  for (const comp of active) {
-    const a = pin(comp, 'a');
-    const b = pin(comp, 'b');
-    const V = potentials[a]! - potentials[b]!;
-    const p = comp.params;
-    let I = 0;
-    let level: number | undefined;
-    let warn: CompResult['warn'];
-    switch (comp.kind) {
-      case 'resistor':
-        I = V / Math.max(p.R ?? 1000, 1e-9);
-        if (p.Pmax && V * I > p.Pmax) warn = 'overload';
-        break;
-      case 'lamp':
-        I = V / Math.max(lampR(p), 1e-9);
-        level = (V * I) / (p.Pnom ?? 5);
-        if (level > 1.2) warn = 'overload';
-        break;
-      case 'switch':
-        I = p.closed ? V / R_ON : 0;
-        break;
-      case 'isource':
-        I = -(p.I ?? 0.01);
-        break;
-      case 'vsource':
-      case 'ammeter':
-      case 'inductor':
-        I = x[branch.get(comp.id)!]!;
-        if (comp.kind === 'vsource' && Math.abs(I) > 100) warn = 'short';
-        break;
-      case 'diode':
-      case 'led': {
-        const { Is, n } = diodeParams(comp);
-        I = Is * (Math.exp(Math.min(V / (n * VT), 200)) - 1);
-        if (comp.kind === 'led') {
-          level = Math.max(0, I) / (p.Inom ?? 0.02);
-          if (level > 1.5) warn = 'overload';
-          if (V < -5) warn = 'reverse';
-        }
-        break;
-      }
-      default:
-        I = 0;
-    }
-    if (Math.abs(I) < 1e-15) I = 0;
-    const P = V * I;
-    powerBalance += P;
-    kcl[a]! += I; // leaves net a into the element
-    kcl[b]! -= I;
-    comps.set(comp.id, { id: comp.id, V, I, P, level, warn });
-  }
-  const kclResidual = Math.max(0, ...kcl.map((v, n) => (n === ground || floating.includes(n) ? 0 : Math.abs(v))));
-
-  const labels = [
-    ...[...node.keys()].map((n) => `φ${n}`),
-    ...[...branch.keys()].map((id) => `I_${c.components.find((k) => k.id === id)!.name}`),
-  ];
+  const ctx: SolveCtx = { mode: 'dc', t: 0, h: 1, xPrev, states, lim: new Map() };
+  const res = results(m, x, ctx);
   return {
+    ...base,
     ok: true,
-    netOf,
-    nets: count,
-    ground,
-    groundAssumed,
-    potentials,
-    comps,
-    floating,
-    iterations,
-    powerBalance,
-    kclResidual,
-    system: last ? { labels, G: last.G, rhs: last.rhs } : undefined,
+    ...res,
+    iterations: total,
+    oscillating,
+    usedGmin: last?.gmin,
+    states,
+    system: last ? { labels: labels(m), G: last.sys.G, rhs: last.sys.rhs } : undefined,
   };
 }
+
+export interface TransientResult {
+  ok: boolean;
+  error?: 'empty' | 'singular';
+  t: number[];
+  /** node potentials over time: one array per net */
+  nets: number[][];
+  /** main current I (a → b) per component over time */
+  currents: Map<string, number[]>;
+  /** logic level per digital part over time */
+  logic: Map<string, number[]>;
+  final: CircuitResult | null;
+  netOf: Map<string, number>;
+  ground: number;
+  steps: number;
+}
+
+/** Transient analysis from rest (capacitors discharged, inductor currents zero) or from the DC operating point. */
+export function simulateTransient(c: CCircuit, tEnd: number, steps = 2000, fromDC = false, prev: DeviceStates = {}): TransientResult {
+  const m = build(c);
+  const empty: TransientResult = { ok: false, t: [], nets: [], currents: new Map(), logic: new Map(), final: null, netOf: m.netOf, ground: m.ground, steps };
+  if (!m.comps.length) return { ...empty, error: 'empty' };
+  const states = clone(prev);
+  let x = new Array<number>(m.N).fill(0);
+  if (fromDC) {
+    const dc = solveCircuit(c, prev);
+    if (dc.ok) {
+      // rebuild x from potentials and branch currents is not exposed; re-run newton in DC mode
+      const r = newton(m, { mode: 'dc', t: 0, h: 1, xPrev: x, states: dc.states, lim: new Map() }, x);
+      if (r) x = r.x;
+      Object.assign(states, clone(dc.states));
+    }
+  }
+  const h = tEnd / steps;
+  const behavioural = m.comps.filter((cc) => deviceOf(cc).behavioural);
+  const T: number[] = [0];
+  const nets: number[][] = Array.from({ length: m.nets }, (_, n) => [m.nodeIdx[n]! < 0 ? 0 : x[m.nodeIdx[n]!]!]);
+  const currents = new Map<string, number[]>();
+  const logic = new Map<string, number[]>();
+  const record = (xx: number[], ctx: SolveCtx) => {
+    const res = results(m, xx, ctx);
+    for (const [id, r] of res.comps) {
+      if (!currents.has(id)) currents.set(id, []);
+      currents.get(id)!.push(r.I);
+      if (r.logic !== undefined) {
+        if (!logic.has(id)) logic.set(id, []);
+        logic.get(id)!.push(r.logic ? 1 : 0);
+      }
+    }
+    return res;
+  };
+  // flip-flops start with their clock input taken as high, so a clock that starts high is not an edge
+  for (const comp of behavioural) {
+    const st = (states[comp.id] ??= {});
+    if (st.clk === undefined) st.clk = true;
+  }
+  // initial behavioural states from the starting point
+  for (const comp of behavioural) deviceOf(comp).update!(comp, envFor(m, comp, x, { mode: 'tran', t: 0, h, xPrev: x, states, lim: new Map() }));
+  record(x, { mode: 'tran', t: 0, h, xPrev: x, states, lim: new Map() });
+  let lim = new Map<string, number>();
+  let lastCtx: SolveCtx = { mode: 'tran', t: 0, h, xPrev: x, states, lim };
+  for (let k = 1; k <= steps; k++) {
+    const t = k * h;
+    const ctx: SolveCtx = { mode: 'tran', t, h, xPrev: x, states, lim };
+    const r = newton(m, ctx, x);
+    if (!r) return { ...empty, error: 'singular', t: T, nets, currents, logic };
+    const xn = r.x;
+    lastCtx = ctx;
+    record(xn, ctx);
+    for (const comp of behavioural) deviceOf(comp).update!(comp, envFor(m, comp, xn, { ...ctx, xPrev: xn }));
+    x = xn;
+    lim = new Map(lim);
+    T.push(t);
+    for (let n = 0; n < m.nets; n++) nets[n]!.push(m.nodeIdx[n]! < 0 ? 0 : x[m.nodeIdx[n]!]!);
+  }
+  const res = results(m, x, lastCtx);
+  const final: CircuitResult = {
+    ok: true,
+    netOf: m.netOf,
+    nets: m.nets,
+    ground: m.ground,
+    groundAssumed: m.groundAssumed,
+    floating: m.floating,
+    iterations: steps,
+    states,
+    ...res,
+  };
+  return { ok: true, t: T, nets, currents, logic, final, netOf: m.netOf, ground: m.ground, steps };
+}
+
+export type { CComponent, CKind, CParams };

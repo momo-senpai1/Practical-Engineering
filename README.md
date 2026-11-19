@@ -57,25 +57,54 @@ TUM Heat and Mass Transfer, Uni Siegen):
   - Fuller diffusion coefficients;
   - transient diffusion into a semi-infinite medium (penetration theory).
 
-### Electrical Circuits (`engine/circuits/solver.ts`)
+### Electrical Circuits (`engine/circuits/`)
 
-Drag components onto the sheet and wire their terminals.
+Drag components onto the sheet, wire their terminals, name them, rotate them
+and set their values with SI prefixes (`4k7`, `10m`, `2,2µ`). Switches, push
+buttons and logic inputs are operated directly on the sheet.
 
-- **Components:** voltage source, current source, ground, resistor (optional
-  power rating), lamp (hot resistance U²/P from its rating, brightness), capacitor
-  (open at DC), inductor (short at DC), switch, diode (Shockley equation), LED
-  (forward voltage and current, colour, brightness), ammeter and voltmeter.
-- **Editing:** every component can be named, rotated and given values with SI
-  prefixes (`4k7`, `10m`, `2,2µ`).
-- **Solver:** modified nodal analysis with Newton–Raphson and junction-voltage
-  limiting for diodes and LEDs.
-- **Results:**
-  - voltage, current, U/I and power for every component;
+**Library (57 parts, `devices.ts`, symbols in `components/circuits/shapes.tsx`):**
+
+- **Sources:** DC voltage, battery with internal resistance, AC/signal source
+  (sine, square, triangle), current source, ground.
+- **Passive:** resistor, potentiometer, capacitor, inductor, transformer,
+  lamp, fuse, photoresistor, NTC thermistor, loudspeaker.
+- **Switches & relays:** switch, SPDT, DPDT, push buttons (NO/NC), relay with
+  pull-in and drop-out.
+- **Diodes:** diode, Zener, LED (colour, brightness), photodiode, bridge
+  rectifier.
+- **Transistors:**
+  - NPN/PNP (Ebers–Moll);
+  - N/P-MOSFET (square law with λ);
+  - N/P-JFET (Shichman–Hodges).
+- **Controlled sources:** VCVS, VCCS, CCVS, CCCS.
+- **ICs:** op-amp (high gain, saturation), voltage regulator, 555 timer.
+- **Digital:** logic input, clock, logic output, buffer, NOT, AND, NAND, OR,
+  NOR, XOR, XNOR (AND/NAND/OR/NOR with 2 or 3 inputs), D, JK and T
+  flip-flops, SR latch.
+- **Meters:** ammeter, voltmeter, scope probe.
+
+**Analysis (`solver.ts`):**
+
+- **Core method:** modified nodal analysis over all devices, with
+  Newton–Raphson and junction limiting for the nonlinear ones.
+- **DC operating point:** an outer loop settles behavioural parts (gates,
+  flip-flops, relays, fuses). Their states persist between solves, so
+  toggling a logic input clocks a flip-flop. A ring oscillator is reported.
+- **Transient analysis:** backward-Euler companion models for capacitors,
+  inductors and the coupled transformer. Behavioural parts react with one
+  step of delay.
+- **Oscilloscope:** analog traces (probes, meters, selectable component
+  currents) and logic-analyser strips.
+- **Result tables:**
+  - voltage, current, U/I, power and details per component (e.g. BJT
+    region, I_C, I_B);
   - node potentials;
-  - the nodal equation system typeset as a matrix;
+  - the nodal equation matrix;
   - a power balance with a Kirchhoff check.
-- **Warnings:** overload, short circuit, a loop of ideal sources, floating
-  parts, a missing ground.
+- **Examples:** voltage divider, LED, Wheatstone bridge, lamps, diode OR,
+  transistor switch, inverting op-amp, RC charging, mains adapter with
+  transformer and bridge, 555 blinker, half adder, 2-bit counter.
 
 ### Mechanics (`engine/mechanics/`)
 
