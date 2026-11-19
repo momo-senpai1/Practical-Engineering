@@ -83,6 +83,7 @@ const AREAS: Area[] = [
       </>
     ),
     modules: [
+      { route: 'control-sim', label: 'Simulator', desc: 'Block diagram editor: wire sources, controllers, plants and scopes; simulate and get the transfer function' },
       { route: 'control', label: 'Control loop', desc: 'P/PI/PID + plant, reduction, step response, margins, Routh' },
       { route: 'bode', label: 'Bode diagram', desc: 'Factor by factor: exact curve and straight-line approximation' },
       { route: 'filters', label: 'Filters', desc: 'Butterworth, Chebyshev, Bessel; Sallen–Key component values' },

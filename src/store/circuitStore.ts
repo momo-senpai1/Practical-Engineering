@@ -38,6 +38,9 @@ interface CircuitState {
   update: (id: string, patch: Partial<CNodeData>) => void;
   setParam: (id: string, key: keyof CParams, value: CParams[keyof CParams]) => void;
   rotate: (id: string) => void;
+  /** the last rotation: its wires were detached, so it can be undone */
+  lastRotate: { id: string; rot: Rot; position: { x: number; y: number }; edges: CEdge[] } | null;
+  undoRotate: () => void;
   remove: (id: string) => void;
   load: (name: ExampleId) => void;
   clear: () => void;
@@ -357,7 +360,31 @@ export const useCircuit = create<CircuitState>()(
       },
       update: (id, patch) => set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...patch } } : n)) }),
       setParam: (id, key, value) => set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, params: { ...n.data.params, [key]: value } } } : n)) }),
-      rotate: (id) => set({ nodes: get().nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, rot: (((n.data.rot + 90) % 360) as Rot) } } : n)) }),
+      // Rotating a connected part would leave its wires on the old terminal sides and route them in loops:
+      // rotate about the centre and detach the wires instead, so the user reconnects them (undo restores them).
+      lastRotate: null,
+      rotate: (id) => {
+        const n0 = get().nodes.find((n) => n.id === id);
+        if (!n0) return;
+        const w = n0.measured?.width ?? 0;
+        const h = n0.measured?.height ?? 0;
+        const position = { x: n0.position.x + (w - h) / 2, y: n0.position.y + (h - w) / 2 };
+        const attached = get().edges.filter((e) => e.source === id || e.target === id);
+        set({
+          nodes: get().nodes.map((n) => (n.id === id ? { ...n, position, data: { ...n.data, rot: (((n.data.rot + 90) % 360) as Rot) } } : n)),
+          edges: get().edges.filter((e) => !attached.includes(e)),
+          lastRotate: { id, rot: n0.data.rot, position: n0.position, edges: attached },
+        });
+      },
+      undoRotate: () => {
+        const lr = get().lastRotate;
+        if (!lr) return;
+        set({
+          nodes: get().nodes.map((n) => (n.id === lr.id ? { ...n, position: lr.position, data: { ...n.data, rot: lr.rot } } : n)),
+          edges: [...get().edges, ...lr.edges.filter((e) => !get().edges.some((x) => x.id === e.id))],
+          lastRotate: null,
+        });
+      },
       remove: (id) => set({ nodes: get().nodes.filter((n) => n.id !== id), edges: get().edges.filter((e) => e.source !== id && e.target !== id) }),
       load: (id) => {
         dcStates = {};

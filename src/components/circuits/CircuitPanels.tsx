@@ -232,6 +232,9 @@ function CompPanel({ n }: { n: CNode }) {
   const setParam = useCircuit((s) => s.setParam);
   const rotate = useCircuit((s) => s.rotate);
   const remove = useCircuit((s) => s.remove);
+  const lastRotate = useCircuit((s) => s.lastRotate);
+  const undoRotate = useCircuit((s) => s.undoRotate);
+  const wired = useCircuit((s) => s.edges.some((e) => e.source === n.id || e.target === n.id));
   const { result } = useCircuitSolution();
   const r = result.comps.get(n.id);
   const d = n.data;
@@ -250,6 +253,15 @@ function CompPanel({ n }: { n: CNode }) {
             <Trash2 className="h-3 w-3" /> {t('Delete')}
           </button>
         </div>
+        {d.kind !== 'ground' && wired && <p className="text-[10px] text-plant-500">{t('Rotating detaches the wires of this part; reconnect them afterwards.')}</p>}
+        {lastRotate?.id === n.id && lastRotate.edges.length > 0 && (
+          <div className="flex items-center gap-2 rounded border border-signal-heat/30 bg-signal-heat/5 px-2 py-1 text-[10px] text-signal-heat">
+            <span className="flex-1">{t('{n} wires detached: drag from the terminals to reconnect.', { n: lastRotate.edges.length })}</span>
+            <button type="button" onClick={undoRotate} className="rounded border border-signal-heat/40 px-1.5 py-0.5 hover:bg-signal-heat/10">
+              {t('Undo rotation')}
+            </button>
+          </div>
+        )}
       </div>
       {FIELDS[d.kind] && (
         <div className="space-y-2 border-b border-white/[0.04] px-4 py-3">
