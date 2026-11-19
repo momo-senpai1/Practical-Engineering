@@ -12,6 +12,7 @@
  */
 
 import { deviceOf, pinsOf, type CComponent, type CKind, type CParams, type Env, type Stamper } from './devices';
+import { solveC } from './reduce';
 
 export * from './devices';
 
@@ -457,3 +458,86 @@ export function simulateTransient(c: CCircuit, tEnd: number, steps = 2000, fromD
 }
 
 export type { CComponent, CKind, CParams };
+
+
+// ---------------------------------------------------------------------------
+// AC small-signal analysis
+// ---------------------------------------------------------------------------
+
+export interface ACResult {
+  ok: boolean;
+  error?: 'empty' | 'noinput' | 'singular';
+  f: number[];
+  /** complex node potentials per net: [re[], im[]] */
+  nets: { re: number[]; im: number[] }[];
+  netOf: Map<string, number>;
+  ground: number;
+}
+
+/**
+ * Frequency response: linearise every device at the DC operating point, add jω·C for capacitors and
+ * jω·L for inductors/transformers, drive the chosen source with amplitude 1 (all others zero).
+ */
+export function acSweep(c: CCircuit, inputId: string, fMin: number, fMax: number, points = 200): ACResult {
+  const m = build(c);
+  const base: ACResult = { ok: false, f: [], nets: [], netOf: m.netOf, ground: m.ground };
+  if (!m.comps.length) return { ...base, error: 'empty' };
+  const input = m.comps.find((x) => x.id === inputId);
+  if (!input) return { ...base, error: 'noinput' };
+  const states: DeviceStates = {};
+  const op = newton(m, { mode: 'dc', t: 0, h: 1, xPrev: new Array(m.N).fill(0), states, lim: new Map() }, new Array(m.N).fill(0));
+  if (!op) return { ...base, error: 'singular' };
+  const G = assemble(m, op.x, { mode: 'dc', t: 0, h: 1, xPrev: op.x, states, lim: new Map() }, false).G;
+  const N = m.N;
+  const Cm = Array.from({ length: N }, () => new Array<number>(N).fill(0));
+  const nodeOf = (comp: CComponent, pin: string) => m.nodeIdx[m.netOf.get(`${comp.id}:${pin}`) ?? -1] ?? -1;
+  const addC = (i: number, j: number, v: number) => {
+    if (i >= 0 && j >= 0) Cm[i]![j]! += v;
+  };
+  for (const comp of m.comps) {
+    const bb = m.branchBase.get(comp.id) ?? 0;
+    if (comp.kind === 'capacitor') {
+      const i = nodeOf(comp, 'a');
+      const j = nodeOf(comp, 'b');
+      const C = comp.params.C ?? 1e-6;
+      addC(i, i, C);
+      addC(j, j, C);
+      addC(i, j, -C);
+      addC(j, i, -C);
+    } else if (comp.kind === 'inductor') {
+      addC(bb, bb, -(comp.params.L ?? 1e-3));
+    } else if (comp.kind === 'transformer') {
+      const L1 = comp.params.L ?? 1;
+      const L2 = L1 * (comp.params.ratio ?? 0.1) ** 2;
+      const M = (comp.params.k ?? 0.999) * Math.sqrt(L1 * L2);
+      addC(bb, bb, -L1);
+      addC(bb, bb + 1, -M);
+      addC(bb + 1, bb, -M);
+      addC(bb + 1, bb + 1, -L2);
+    }
+  }
+  const rhs = new Array<number>(N).fill(0);
+  if (input.kind === 'isource') {
+    const i = nodeOf(input, 'a');
+    const j = nodeOf(input, 'b');
+    if (i >= 0) rhs[i] = 1;
+    if (j >= 0) rhs[j] = -1;
+  } else if (m.branchBase.has(input.id)) rhs[m.branchBase.get(input.id)!] = 1;
+  else return { ...base, error: 'noinput' };
+  const f: number[] = [];
+  const nets = Array.from({ length: m.nets }, () => ({ re: [] as number[], im: [] as number[] }));
+  for (let k = 0; k < points; k++) {
+    const fr = points > 1 ? fMin * (fMax / fMin) ** (k / (points - 1)) : fMin;
+    const w = 2 * Math.PI * fr;
+    const M = G.map((row, i) => [...row.map((g, j) => ({ re: g, im: w * Cm[i]![j]! })), { re: rhs[i]!, im: 0 }]);
+    const x = solveC(M);
+    if (!x) return { ...base, error: 'singular' };
+    f.push(fr);
+    for (let n = 0; n < m.nets; n++) {
+      const idx = m.nodeIdx[n]!;
+      nets[n]!.re.push(idx < 0 ? 0 : x[idx]!.re);
+      nets[n]!.im.push(idx < 0 ? 0 : x[idx]!.im);
+    }
+  }
+  return { ok: true, f, nets, netOf: m.netOf, ground: m.ground };
+}

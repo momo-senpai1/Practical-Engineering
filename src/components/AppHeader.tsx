@@ -42,6 +42,12 @@ const NAV: Record<Section, (NavItem | NavGroup)[]> = {
     { route: 'truss', label: 'Truss' },
     { route: 'torsion', label: 'Shaft & torsion' },
   ],
+  control: [
+    { route: 'control', label: 'Control loop' },
+    { route: 'bode', label: 'Bode diagram' },
+    { route: 'filters', label: 'Filters' },
+    { route: 'fourier', label: 'Fourier / FFT' },
+  ],
 };
 
 export const SECTIONS: { id: Section; label: string; home: Route }[] = [
@@ -49,6 +55,7 @@ export const SECTIONS: { id: Section; label: string; home: Route }[] = [
   { id: 'heat', label: 'Heat & Mass Transfer', home: 'conduction' },
   { id: 'circuits', label: 'Electrical Circuits', home: 'circuits' },
   { id: 'mechanics', label: 'Mechanics', home: 'beam' },
+  { id: 'control', label: 'Control Engineering', home: 'control' },
 ];
 
 const tab = (active: boolean) =>

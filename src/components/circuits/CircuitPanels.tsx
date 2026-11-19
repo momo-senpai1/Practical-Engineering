@@ -8,6 +8,7 @@ import { t, useLang } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { EXAMPLES, useCircuit, useCircuitSolution, useTransient, type CNode, type ExampleId } from '@/store/circuitStore';
 import { CIRCUIT_DND, SymbolIcon, valueLabel } from './CircuitCanvas';
+import { BodeTab, SimplifyTab } from './AnalysisTabs';
 import { LineChartBox } from '@/components/heat/charts';
 import { pinsOf } from '@/engine/circuits/devices';
 
@@ -326,7 +327,7 @@ export function CircuitInspector() {
   );
 }
 
-type Tab = 'table' | 'scope' | 'nodes' | 'system' | 'power';
+type Tab = 'table' | 'scope' | 'bode' | 'reduce' | 'nodes' | 'system' | 'power';
 
 function AnalysisBar() {
   const a = useCircuit((s) => s.analysis);
@@ -335,7 +336,7 @@ function AnalysisBar() {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.05] px-2 py-1.5 text-[11px]">
       <div role="group" aria-label={t('Analysis')} className="flex rounded border border-white/[0.08] p-0.5">
-        {(['dc', 'tran'] as const).map((m) => (
+        {(['dc', 'tran', 'ac'] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -343,7 +344,7 @@ function AnalysisBar() {
             onClick={() => setA({ mode: m })}
             className={cn('rounded-sm px-2 py-0.5', a.mode === m ? 'bg-signal-vapor/15 text-signal-vapor' : 'text-plant-300 hover:text-plant-100')}
           >
-            {t(m === 'dc' ? 'DC operating point' : 'Transient')}
+            {t(m === 'dc' ? 'DC operating point' : m === 'tran' ? 'Transient' : 'AC / Bode')}
           </button>
         ))}
       </div>
@@ -401,13 +402,16 @@ export function CircuitResults() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'table', label: 'Currents & voltages' },
     ...(mode === 'tran' ? [{ id: 'scope' as Tab, label: 'Oscilloscope' }] : []),
+    ...(mode === 'ac' ? [{ id: 'bode' as Tab, label: 'Bode (AC)' }] : []),
+    { id: 'reduce', label: 'Simplify (equivalent)' },
     { id: 'nodes', label: 'Node potentials' },
     { id: 'system', label: 'Nodal equations' },
     { id: 'power', label: 'Power balance' },
   ];
   useEffect(() => {
     if (mode === 'tran') setTab('scope');
-    else setTab((x) => (x === 'scope' ? 'table' : x));
+    else if (mode === 'ac') setTab('bode');
+    else setTab((x) => (x === 'scope' || x === 'bode' ? 'table' : x));
   }, [mode]);
   return (
     <section className="glass flex h-[46%] min-h-[240px] shrink-0 flex-col overflow-hidden">
@@ -441,6 +445,10 @@ export function CircuitResults() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'scope' ? (
           <Scope />
+        ) : tab === 'bode' ? (
+          <BodeTab />
+        ) : tab === 'reduce' ? (
+          <SimplifyTab />
         ) : (
           <>
             <Messages />

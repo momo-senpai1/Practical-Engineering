@@ -33,6 +33,10 @@ const ConvectionPage = lazy(() => import('@/pages/heat/ConvectionPage'));
 const RadiationPage = lazy(() => import('@/pages/heat/RadiationPage'));
 const ExchangerPage = lazy(() => import('@/pages/heat/ExchangerPage'));
 const DiffusionPage = lazy(() => import('@/pages/heat/DiffusionPage'));
+const ControlLoopPage = lazy(() => import('@/pages/control/ControlLoopPage'));
+const BodePage = lazy(() => import('@/pages/control/BodePage'));
+const FilterPage = lazy(() => import('@/pages/control/FilterPage'));
+const FourierPage = lazy(() => import('@/pages/control/FourierPage'));
 
 export default function App() {
   const { route, params } = useRoute();
@@ -101,6 +105,14 @@ export default function App() {
                 <ExchangerPage />
               ) : route === 'diffusion' ? (
                 <DiffusionPage />
+              ) : route === 'control' ? (
+                <ControlLoopPage />
+              ) : route === 'bode' ? (
+                <BodePage />
+              ) : route === 'filters' ? (
+                <FilterPage />
+              ) : route === 'fourier' ? (
+                <FourierPage />
               ) : (
                 <DistillationLinesPage />
               )}

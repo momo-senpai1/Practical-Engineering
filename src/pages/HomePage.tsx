@@ -53,7 +53,7 @@ const AREAS: Area[] = [
     lead: 'Build DC circuits from sources, resistors, diodes, LEDs, lamps and switches; every node voltage, branch current and power is computed.',
     accent: 'var(--sig-vapor)',
     icon: <path d="M2 12h4l2-5 3 10 3-10 3 10 2-5h3" />,
-    modules: [{ route: 'circuits', label: 'Circuit simulator', desc: 'Nodal analysis with Kirchhoff checks and a power balance' }],
+    modules: [{ route: 'circuits', label: 'Circuit simulator', desc: 'DC, transient and AC/Bode analysis; step-by-step network simplification' }],
   },
   {
     title: 'Mechanics',
@@ -72,6 +72,23 @@ const AREAS: Area[] = [
       { route: 'torsion', label: 'Shaft & torsion', desc: 'Torque diagram, shear stress, angle of twist' },
     ],
   },
+  {
+    title: 'Control Engineering',
+    lead: 'Controllers and plants as blocks: block diagram reduction step by step, step response, Bode and Nyquist, stability, filter design and Fourier analysis.',
+    accent: 'var(--sig-liquid)',
+    icon: (
+      <>
+        <rect x="8" y="5" width="8" height="6" rx="1" />
+        <path d="M2 8h6M16 8h6M19 8v9H5V8" />
+      </>
+    ),
+    modules: [
+      { route: 'control', label: 'Control loop', desc: 'P/PI/PID + plant, reduction, step response, margins, Routh' },
+      { route: 'bode', label: 'Bode diagram', desc: 'Factor by factor: exact curve and straight-line approximation' },
+      { route: 'filters', label: 'Filters', desc: 'Butterworth, Chebyshev, Bessel; Sallen–Key component values' },
+      { route: 'fourier', label: 'Fourier / FFT', desc: 'Fourier series, Gibbs, FFT spectrum, windows, aliasing' },
+    ],
+  },
 ];
 
 export default function HomePage() {
@@ -83,7 +100,7 @@ export default function HomePage() {
           {t('Interactive simulators for the core engineering lectures. Build the system, enter your values, and see every result with the way it was calculated.')}
         </p>
       </div>
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {AREAS.map((a) => (
           <section key={a.title} className="glass flex flex-col p-5">
             <div className="mb-3 flex items-center gap-3">

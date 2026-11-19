@@ -7,7 +7,8 @@ Browser-based simulators for the core engineering lectures. The start page
 |---|---|---|
 | **Thermal Separation** | `#/flowsheet`, `#/mccabe-thiele`, … | Flowsheet simulator and balance tasks, distillation, extraction, absorption, evaporation, crystallization, drying (described below) |
 | **Heat & Mass Transfer** | `#/conduction`, `#/fin`, `#/transient`, `#/convection`, `#/radiation`, `#/exchanger`, `#/diffusion` | Conduction, fins, transient conduction, convection, radiation, heat exchangers, diffusion |
-| **Electrical Circuits** | `#/circuits` | DC circuit simulator |
+| **Electrical Circuits** | `#/circuits` | Circuit simulator: DC, transient, AC/Bode, step-by-step network simplification |
+| **Control Engineering** | `#/control`, `#/bode`, `#/filters`, `#/fourier` | Control loops with block diagram reduction, Bode/Nyquist, stability, filter design, Fourier/FFT |
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
@@ -105,6 +106,36 @@ buttons and logic inputs are operated directly on the sheet.
 - **Examples:** voltage divider, LED, Wheatstone bridge, lamps, diode OR,
   transistor switch, inverting op-amp, RC charging, mains adapter with
   transformer and bridge, 555 blinker, half adder, 2-bit counter.
+
+### Control Engineering (`engine/control/`)
+
+- **Polynomials and transfer functions (`poly.ts`):** coefficient arrays in
+  ascending powers, series/parallel/feedback, roots (Durand–Kerner), Bode with
+  unwrapped phase, gain and phase margins, Padé approximation of a dead time,
+  step and impulse responses (RK4 on the controllable canonical form), rise
+  time, overshoot and settling time, Routh table.
+- **Control loop (`loop.ts`, page `#/control`):** blocks P, I, PI, PD, PID
+  (filtered D), lead/lag, PT1, PT2, PTn, IT1, PT1 with dead time, D, or a custom
+  numerator/denominator. Each block can have a parallel branch and a local
+  feedback. The block diagram is reduced step by step (parallel → local
+  feedback → series → open loop → closed loop) and every step is shown as a
+  formula. The page also shows step response, Bode of L with margins, Nyquist,
+  pole-zero map, Routh table and steady-state error.
+- **Bode diagram (`#/bode`):** G(s) built from factors (gain, integrator,
+  differentiator, first/second order poles and zeros, dead time); exact curve
+  and straight-line approximation.
+- **Filters (`filters.ts`, `#/filters`):** Butterworth, Chebyshev I and Bessel
+  prototypes; low-pass, high-pass, band-pass and band-stop transformations;
+  second-order sections with Q and ω₀; unity-gain Sallen–Key component values.
+- **Fourier (`fourier.ts`, `#/fourier`):** analytic Fourier series (Gibbs
+  phenomenon), radix-2 FFT with windows, aliasing at low sampling rates.
+
+In the circuit simulator, **AC / Bode** linearises every part at the DC
+operating point and sweeps the frequency (|H| and phase at each probe or
+voltmeter). The **Simplify** tab combines two-terminal parts step by step
+(series, parallel, star → delta, sources set to zero) for the impedance seen by
+a source, between two nodes, or as a Thévenin/Norton equivalent, and checks the
+result by nodal analysis.
 
 ### Mechanics (`engine/mechanics/`)
 

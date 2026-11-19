@@ -21,7 +21,7 @@ const PREFIX: Record<CKind, string> = {
   ammeter: 'A', voltmeter: 'V', probe: 'P',
 };
 
-export type Analysis = { mode: 'dc' | 'tran'; tEnd: number; steps: number; fromDC: boolean };
+export type Analysis = { mode: 'dc' | 'tran' | 'ac'; tEnd: number; steps: number; fromDC: boolean; acInput?: string; fMin?: number; fMax?: number };
 
 interface CircuitState {
   nodes: CNode[];
@@ -75,7 +75,7 @@ const nextName = (nodes: CNode[], kind: CKind) => {
 };
 
 type Ex = { comps: [string, CKind, CParams, number, number, Rot?][]; wires: [string, string][] };
-export type ExampleId = 'divider' | 'led' | 'bridge' | 'lamps' | 'diodes' | 'transistor' | 'opamp' | 'rc' | 'rectifier' | 'blinker' | 'adder' | 'counter';
+export type ExampleId = 'divider' | 'led' | 'bridge' | 'lamps' | 'diodes' | 'transistor' | 'opamp' | 'rc' | 'rectifier' | 'blinker' | 'adder' | 'counter' | 'resnet' | 'rcfilter' | 'sallenkey';
 export const EXAMPLES: Record<ExampleId, { label: string; ex: Ex; analysis?: Partial<Analysis> }> = {
   divider: {
     label: 'Voltage divider',
@@ -258,6 +258,54 @@ export const EXAMPLES: Record<ExampleId, { label: string; ex: Ex; analysis?: Par
         ['Q1', 'logicOut', {}, 500, 200],
       ],
       wires: [['H:out', 'FF1:t'], ['H:out', 'FF2:t'], ['CLK:out', 'FF1:clk'], ['FF1:qn', 'FF2:clk'], ['FF1:q', 'Q0:in'], ['FF2:q', 'Q1:in']],
+    },
+  },
+
+  resnet: {
+    label: 'Resistor network to simplify (R1 ∥ R2) + R3',
+    ex: {
+      comps: [
+        ['U1', 'vsource', { V: 12 }, 0, 120, 90],
+        ['R1', 'resistor', { R: 1000 }, 160, 0],
+        ['R2', 'resistor', { R: 1000 }, 160, 100],
+        ['R3', 'resistor', { R: 1000 }, 380, 50],
+        ['GND', 'ground', {}, 30, 300],
+      ],
+      wires: [['U1:a', 'R1:a'], ['U1:a', 'R2:a'], ['R1:b', 'R3:a'], ['R2:b', 'R3:a'], ['R3:b', 'U1:b'], ['U1:b', 'GND:a']],
+    },
+  },
+  rcfilter: {
+    label: 'RC low-pass filter (AC / Bode)',
+    analysis: { mode: 'ac', fMin: 1, fMax: 100000 },
+    ex: {
+      comps: [
+        ['U1', 'acsource', { amp: 1, freq: 1000 }, 0, 120, 90],
+        ['R1', 'resistor', { R: 1000 }, 140, 20],
+        ['C1', 'capacitor', { C: 1e-7 }, 320, 120, 90],
+        ['P1', 'probe', {}, 420, 110],
+        ['GND', 'ground', {}, 30, 280],
+      ],
+      wires: [['U1:a', 'R1:a'], ['R1:b', 'C1:a'], ['C1:a', 'P1:a'], ['C1:b', 'U1:b'], ['U1:b', 'GND:a']],
+    },
+  },
+  sallenkey: {
+    label: 'Sallen–Key low-pass, 1 kHz Butterworth (AC / Bode)',
+    analysis: { mode: 'ac', fMin: 10, fMax: 100000 },
+    ex: {
+      comps: [
+        ['U1', 'acsource', { amp: 1, freq: 1000 }, 0, 160, 90],
+        ['R1', 'resistor', { R: 10000 }, 120, 60],
+        ['R2', 'resistor', { R: 10000 }, 270, 60],
+        ['C1', 'capacitor', { C: 2.25e-8 }, 270, -60],
+        ['C2', 'capacitor', { C: 1.125e-8 }, 400, 160, 90],
+        ['OP1', 'opamp', { A: 1e5, Vsat: 13.5 }, 470, 40],
+        ['P1', 'probe', {}, 640, 60],
+        ['GND', 'ground', {}, 200, 320],
+      ],
+      wires: [
+        ['U1:a', 'R1:a'], ['R1:b', 'R2:a'], ['R1:b', 'C1:a'], ['R2:b', 'C2:a'], ['R2:b', 'OP1:inp'], ['C2:b', 'GND:a'],
+        ['OP1:out', 'OP1:inn'], ['OP1:out', 'C1:b'], ['OP1:out', 'P1:a'], ['U1:b', 'GND:a'],
+      ],
     },
   },
 };
