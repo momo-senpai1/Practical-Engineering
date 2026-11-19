@@ -21,13 +21,18 @@ export type Route =
   | 'convection'
   | 'radiation'
   | 'exchanger'
-  | 'diffusion';
-const ROUTES: readonly Route[] = ['home', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
+  | 'diffusion'
+  | 'control'
+  | 'bode'
+  | 'filters'
+  | 'fourier';
+const ROUTES: readonly Route[] = ['home', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion', 'control', 'bode', 'filters', 'fourier'];
 
-export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics';
+export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics' | 'control';
+const CONTROL: readonly Route[] = ['control', 'bode', 'filters', 'fourier'];
 const HEAT: readonly Route[] = ['conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
 export const SECTION_OF = (r: Route): Section | null =>
-  r === 'home' ? null : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';
+  r === 'home' ? null : CONTROL.includes(r) ? 'control' : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';
 
 function parse(): { route: Route; params: URLSearchParams } {
   const raw = window.location.hash.replace(/^#\/?/, '');
