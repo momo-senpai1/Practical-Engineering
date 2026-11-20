@@ -510,3 +510,12 @@ published equations; the following projects are used as logic references only
 (no code is copied — DWSIM and CADET are GPL-licensed):
 DWSIM, CADET, ThermalSeparation (Modelica), and the McCabe–Thiele simulators by
 trsav, 314arhaam and minangajayasekera-ops.
+
+## Saving, exporting and shared examples
+
+- **My sheets** (circuit simulator and control simulator): save the current sheet under a name in the
+  browser, reopen or delete it, or export/import it as a `.json` file.
+- **Export** (top right of the canvas): the whole diagram as PNG, the result panel as PNG, or a PDF report
+  with the diagram and the results tab that is open.
+- **Shared examples:** a sheet exported as a file and placed in `src/examples/control-sim/` or
+  `src/examples/circuit/` is listed under "Shared examples" for every visitor after the next deploy.

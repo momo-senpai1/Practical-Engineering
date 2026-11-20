@@ -7,7 +7,7 @@ import { formatSI, parseSI } from '@/engine/circuits/units';
 import { t, useLang } from '@/i18n';
 import { cn } from '@/lib/utils';
 import { EXAMPLES, useCircuit, useCircuitSolution, useTransient, type CNode, type ExampleId } from '@/store/circuitStore';
-import { SheetManager } from '@/components/SheetManager';
+import { SharedExamples, SheetManager } from '@/components/SheetManager';
 import { CIRCUIT_DND, SymbolIcon, valueLabel } from './CircuitCanvas';
 import { BodeTab, SimplifyTab } from './AnalysisTabs';
 import { LineChartBox } from '@/components/heat/charts';
@@ -82,6 +82,9 @@ export function CircuitPalette() {
       </div>
       <div className="mt-auto border-t border-white/[0.05] p-3">
         <SheetManager app="circuit" current={snapshot} apply={loadSheet} />
+        <div className="mt-3">
+          <SharedExamples app="circuit" apply={loadSheet} />
+        </div>
       </div>
       <div className="space-y-1 border-t border-white/[0.05] p-3">
         <p className="tag mb-1 text-plant-400">{t('Examples')}</p>
@@ -460,7 +463,7 @@ export function CircuitResults() {
           )}
         </span>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div data-export="circuit-results" className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === 'scope' ? (
           <Scope />
         ) : tab === 'bode' ? (

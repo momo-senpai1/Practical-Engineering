@@ -2,6 +2,13 @@
 
 export const DE: Record<string, string> = {
   // navigation & shell
+  "Diagram as PNG": "Diagramm als PNG",
+  "Results as PNG": "Ergebnisse als PNG",
+  "PDF report (diagram + results)": "PDF-Bericht (Diagramm + Ergebnisse)",
+  "Export failed": "Export fehlgeschlagen",
+  "results": "Ergebnisse",
+  "Shared examples": "Geteilte Beispiele",
+  "Circuit": "Schaltung",
   "Chebyshev I": "Tschebyscheff I",
   "Centre frequency f₀ [Hz]": "Mittenfrequenz f₀ [Hz]",
   "Cut-off frequency f_c [Hz]": "Grenzfrequenz f_c [Hz]",
