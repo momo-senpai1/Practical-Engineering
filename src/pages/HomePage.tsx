@@ -134,6 +134,13 @@ export default function HomePage() {
         ))}
       </div>
       <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px] text-plant-500">
+        <span>© 2026 momo-senpai1 · Practical Engineering</span>
+        <a href="https://github.com/momo-senpai1/Practical-Engineering/blob/main/LICENSE" target="_blank" rel="noreferrer" className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
+          {t('Apache License 2.0')}
+        </a>
+        <a href={`${import.meta.env.BASE_URL}third-party-licenses.txt`} target="_blank" rel="noreferrer" className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
+          {t('Third-party licenses')}
+        </a>
         <span>{t('No tracking · your work stays in your browser')}</span>
         <button type="button" onClick={() => navigate('privacy')} className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
           {t('Privacy')}

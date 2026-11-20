@@ -534,3 +534,10 @@ trsav, 314arhaam and minangajayasekera-ops.
   with the diagram and the results tab that is open.
 - **Shared examples:** a sheet exported as a file and placed in `src/examples/control-sim/` or
   `src/examples/circuit/` is listed under "Shared examples" for every visitor after the next deploy.
+
+## License
+
+Copyright 2026 momo-senpai1. Licensed under the **Apache License, Version 2.0** — see
+[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Bundled third-party software and fonts keep their own
+licenses (MIT, ISC, BSD, Apache-2.0, SIL OFL 1.1); every build writes the full list with license
+texts to `third-party-licenses.txt`, linked in the footer of the start page.

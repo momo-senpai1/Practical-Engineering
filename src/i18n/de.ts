@@ -2,6 +2,8 @@
 
 export const DE: Record<string, string> = {
   // navigation & shell
+  "Apache License 2.0": "Apache-Lizenz 2.0",
+  "Third-party licenses": "Lizenzen verwendeter Software",
   "Privacy": "Datenschutz",
   "In short": "Kurz gesagt",
   "Hosting": "Hosting",
