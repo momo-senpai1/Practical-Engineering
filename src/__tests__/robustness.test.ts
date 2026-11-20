@@ -21,6 +21,11 @@ import { solveBeam } from '@/engine/mechanics/beam';
 import { solveShaft } from '@/engine/mechanics/torsion';
 import { solveTruss } from '@/engine/mechanics/truss';
 import { runSimulation, sanitizeSpec } from '@/lib/guard';
+import { solvePipe } from '@/engine/fluid/pipe';
+import { carnot, diesel, joule, otto, rankine } from '@/engine/thermo/cycles';
+import { heatCool, humidify, mix, state as airState, xOf } from '@/engine/thermo/humidair';
+import { binodal, gasMixture, ucst } from '@/engine/thermo/mixtures';
+import { departure, stableZ, SUBSTANCES, vaporPressure } from '@/engine/thermo/realgas';
 
 const EXTREMES = [0, -1, -1e9, 1e12, 1e-12, NaN, Infinity, -Infinity];
 /** what a number field can deliver (non-finite input is rejected there) */
@@ -165,5 +170,29 @@ describe('control engineering (through the UI guards)', () => {
         s.steps,
       ),
     EXTREMES,
+  );
+});
+
+describe('thermodynamics and fluid mechanics', () => {
+  check('Carnot', { TL: 300, TH: 900, p1: 100, ds: 0.5, T0: 288 }, carnot);
+  check('Joule', { T1: 288, p1: 100, pr: 12, T3: 1400, etaC: 0.86, etaT: 0.9, T0: 288, Tsrc: 2500 }, joule);
+  check('Otto', { T1: 300, p1: 100, eps: 10, T3: 2400, T0: 288, Tsrc: 2500 }, otto);
+  check('Diesel', { T1: 300, p1: 100, eps: 18, T3: 2200, T0: 288, Tsrc: 2500 }, diesel);
+  check('Clausius–Rankine', { pc: 10, pb: 10000, T3: 773.15, etaT: 0.85, etaP: 0.8, T0: 288, Tsrc: 1473 }, rankine);
+  check('real gas (PR)', { T: 290, p: 50 }, (s) => {
+    const sub = SUBSTANCES[0]!;
+    const z = stableZ('pr', sub, s.T, s.p);
+    return [departure('pr', sub, s.T, s.p, z.Z), vaporPressure('pr', sub, s.T)];
+  });
+  check('miscibility gap', { a12: 1000, a21: 1300, T: 400 }, (s) => [binodal(s, s.T), ucst(s)]);
+  check('gas mixture', { n1: 1, n2: 2, M: 28, cp: 29, p: 1, T: 300 }, (s) => gasMixture([{ name: 'a', n: s.n1, M: s.M, cp: s.cp }, { name: 'b', n: s.n2, M: 32, cp: 29 }], s.p, s.T));
+  check('humid air', { t1: 25, phi: 0.6, t2: 12, p: 101.325, m: 0.3 }, (s) => {
+    const a = airState(s.t1, xOf(s.t1, s.phi, s.p), s.p);
+    return [heatCool(a, s.t2, s.p), mix(a, airState(s.t2, 0.005, s.p), s.m, 1 - s.m, s.p), humidify(a, 0.9, 15, s.p)];
+  });
+  check(
+    'pipe flow',
+    { T: 20, Q: 3, pIn: 1.5, k: 0.05, segments: [{ id: 'a', L: 1, d: 50, dz: 0, zeta: 0, inlet: 'sudden' as const }, { id: 'b', L: 0.2, d: 20, dz: 1, zeta: 0.5, inlet: 'smooth' as const }] },
+    (s) => solvePipe({ ...s, fluid: 'water' }),
   );
 });

@@ -1,7 +1,7 @@
 /** Formula collection: the relations the simulators use, grouped by subject. */
 
 export interface Formula {
-  subject: 'Thermal separation' | 'Heat & mass transfer' | 'Electrical circuits' | 'Control engineering' | 'Mechanics';
+  subject: 'Thermal separation' | 'Heat & mass transfer' | 'Electrical circuits' | 'Control engineering' | 'Mechanics' | 'Thermodynamics' | 'Fluid mechanics';
   topic: string;
   name: string;
   tex: string;
@@ -73,4 +73,23 @@ export const FORMULAS: Formula[] = [
   { subject: 'Mechanics', topic: 'Beams', name: 'Deflection: cantilever, end load', tex: 'w_{max} = \\frac{F L^3}{3\\,E I},\\qquad M_A = F L', vars: '', route: 'beam' },
   { subject: 'Mechanics', topic: 'Trusses', name: 'Static determinacy of a truss', tex: 'n = s + r - 2k', vars: 's: bars, r: support reactions, k: joints; n = 0: determinate', route: 'truss' },
   { subject: 'Mechanics', topic: 'Torsion', name: 'Circular shaft', tex: '\\tau_{max} = \\frac{M_t}{W_t},\\quad W_t = \\frac{\\pi d^3}{16},\\quad \\vartheta = \\frac{M_t\\,L}{G\\,I_p},\\quad I_p = \\frac{\\pi d^4}{32}', vars: 'ϑ: angle of twist, G: shear modulus', route: 'torsion' },
+
+  // ---------------------------------------------------------------- thermodynamics
+  { subject: 'Thermodynamics', topic: 'Cycles', name: 'Carnot efficiency', tex: '\\eta_C = 1 - \\frac{T_L}{T_H}', vars: 'upper limit for every cycle between T_L and T_H (temperatures in K)', route: 'cycles' },
+  { subject: 'Thermodynamics', topic: 'Cycles', name: 'Clausius–Rankine efficiency, wet steam', tex: '\\eta = \\frac{(h_3 - h_4) - (h_2 - h_1)}{h_3 - h_2},\\qquad h = h\' + x\\,(h\'\' - h\')', vars: 'x: vapour quality, h′/h″: saturated liquid / vapour', route: 'cycles' },
+  { subject: 'Thermodynamics', topic: 'Cycles', name: 'Joule, Otto and Diesel (ideal, air-standard)', tex: '\\eta_J = 1 - \\Pi^{-\\frac{\\kappa - 1}{\\kappa}},\\quad \\eta_O = 1 - \\varepsilon^{1 - \\kappa},\\quad \\eta_D = 1 - \\frac{\\varphi^\\kappa - 1}{\\kappa\\,\\varepsilon^{\\kappa - 1}(\\varphi - 1)}', vars: 'Π: pressure ratio, ε: compression ratio, φ: cut-off ratio', route: 'cycles' },
+  { subject: 'Thermodynamics', topic: 'Exergy', name: 'Exergy of heat, exergy loss (Gouy–Stodola)', tex: 'e_q = q\\left(1 - \\frac{T_0}{T}\\right),\\qquad e_V = T_0\\,s_{irr}', vars: 'T₀: ambient temperature, s_irr: entropy generated', route: 'cycles' },
+  { subject: 'Thermodynamics', topic: 'Ideal gas', name: 'Ideal gas: state, entropy, isentrope', tex: 'p v = R T,\\quad s_2 - s_1 = c_p \\ln\\frac{T_2}{T_1} - R\\ln\\frac{p_2}{p_1},\\quad p v^\\kappa = \\text{const}', vars: 'R = R_m/M specific gas constant', route: 'cycles' },
+  { subject: 'Thermodynamics', topic: 'Real gases', name: 'van der Waals equation', tex: '\\left(p + \\frac{a}{v^2}\\right)(v - b) = R T,\\quad a = \\frac{27 R^2 T_c^2}{64 p_c},\\quad b = \\frac{R T_c}{8 p_c}', vars: 'v: molar volume; Z_c = 3/8', route: 'realgas' },
+  { subject: 'Thermodynamics', topic: 'Real gases', name: 'Maxwell relation and equal-area rule', tex: '\\left(\\frac{\\partial s}{\\partial v}\\right)_T = \\left(\\frac{\\partial p}{\\partial T}\\right)_v,\\qquad \\int_{v\'}^{v\'\'} p\\,\\mathrm{d}v = p_s\\,(v\'\' - v\')', vars: 'p_s: vapour pressure of the equation of state', route: 'realgas' },
+  { subject: 'Thermodynamics', topic: 'Mixtures', name: 'Phase equilibrium of two liquid phases', tex: 'x_i^{\\alpha}\\gamma_i^{\\alpha} = x_i^{\\beta}\\gamma_i^{\\beta},\\qquad \\frac{n^{\\beta}}{n} = \\frac{z - x^{\\alpha}}{x^{\\beta} - x^{\\alpha}}', vars: 'equal activities; lever rule for the amounts', route: 'mixtures' },
+  { subject: 'Thermodynamics', topic: 'Humid air', name: 'Water content and enthalpy of humid air', tex: 'x = 0.622\\,\\frac{\\varphi\\,p_s}{p - \\varphi\\,p_s},\\qquad h_{1+x} = 1.006\\,t + x\\,(2501 + 1.86\\,t)', vars: 'h in kJ/kg dry air, t in °C', route: 'humidair' },
+
+  // ---------------------------------------------------------------- fluid mechanics
+  { subject: 'Fluid mechanics', topic: 'Pipe flow', name: 'Reynolds number', tex: 'Re = \\frac{w\\,d}{\\nu} = \\frac{\\rho\\,w\\,d}{\\eta},\\qquad Re_{krit} \\approx 2300', vars: 'laminar below 2300, turbulent above ≈ 4000', route: 'pipe' },
+  { subject: 'Fluid mechanics', topic: 'Pipe flow', name: 'Pressure loss in a pipe (Darcy–Weisbach)', tex: '\\Delta p_V = \\left(\\lambda\\,\\frac{L}{d} + \\sum \\zeta\\right)\\frac{\\rho}{2}\\,w^2', vars: 'λ: friction factor, ζ: loss coefficients of fittings', route: 'pipe' },
+  { subject: 'Fluid mechanics', topic: 'Pipe flow', name: 'Friction factor: laminar and Colebrook–White', tex: '\\lambda_{lam} = \\frac{64}{Re},\\qquad \\frac{1}{\\sqrt{\\lambda}} = -2\\log_{10}\\left(\\frac{2.51}{Re\\sqrt{\\lambda}} + \\frac{k/d}{3.71}\\right)', vars: 'k: wall roughness', route: 'pipe' },
+  { subject: 'Fluid mechanics', topic: 'Pipe flow', name: 'Laminar velocity profile (Hagen–Poiseuille)', tex: 'u(r) = 2\\bar w\\left(1 - \\frac{r^2}{R^2}\\right),\\qquad \\dot V = \\frac{\\pi R^4}{8 \\eta}\\,\\frac{\\Delta p}{L}', vars: '', route: 'pipe' },
+  { subject: 'Fluid mechanics', topic: 'Bernoulli', name: 'Extended Bernoulli equation', tex: 'p_1 + \\frac{\\rho}{2}w_1^2 + \\rho g z_1 = p_2 + \\frac{\\rho}{2}w_2^2 + \\rho g z_2 + \\Delta p_V', vars: 'continuity: w₁A₁ = w₂A₂', route: 'pipe' },
+  { subject: 'Fluid mechanics', topic: 'Bernoulli', name: 'Sudden expansion (Borda–Carnot), cavitation', tex: '\\zeta = \\left(1 - \\frac{A_1}{A_2}\\right)^2\\ (\\text{on } w_1),\\qquad \\text{cavitation if } p < p_v(T)', vars: 'p_v: vapour pressure of the liquid', route: 'pipe' },
 ];

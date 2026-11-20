@@ -1,7 +1,7 @@
 # Practical Engineering
 
 Browser-based simulators for the core engineering lectures. The start page
-(`#/`) leads to six areas:
+(`#/`) leads to eight areas:
 
 | Area | Routes | What it does |
 |---|---|---|
@@ -10,6 +10,8 @@ Browser-based simulators for the core engineering lectures. The start page
 | **Electrical Circuits** | `#/circuits` | Circuit simulator: DC, transient, AC/Bode, step-by-step network simplification |
 | **Control Engineering** | `#/control-sim`, `#/control`, `#/bode`, `#/filters`, `#/fourier` | Control loops with block diagram reduction, Bode/Nyquist, stability, filter design, Fourier/FFT |
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
+| **Thermodynamics** | `#/cycles`, `#/steam`, `#/realgas`, `#/mixtures`, `#/humidair` | Cycles in T,s and p,v diagrams with draggable state points (Carnot, Clausius–Rankine, Joule, Otto, Diesel) and exergy analysis, steam table, real gases with Maxwell construction, miscibility gaps and gas mixtures, Mollier h,x diagram |
+| **Fluid Mechanics** | `#/pipe` | Pipe flow and Bernoulli lab: Reynolds number, laminar/turbulent profile, Colebrook, losses, energy line, cavitation, Moody diagram |
 | **Tools** | `#/formulas`, `#/units` | Searchable formula collection (linked to the simulators), unit converter |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
@@ -148,6 +150,30 @@ voltmeter). The **Simplify** tab combines two-terminal parts step by step
 (series, parallel, star → delta, sources set to zero) for the impedance seen by
 a source, between two nodes, or as a Thévenin/Norton equivalent, and checks the
 result by nodal analysis.
+
+### Thermodynamics (`engine/thermo/`) and fluid mechanics (`engine/fluid/`)
+
+- **Water and steam (`steam.ts`):** IAPWS 1992 saturation equations (Wagner–Pruß, auxiliary
+  equations for ρ′, ρ″, h′, h″, s′, s″) and IAPWS-IF97 region 2 (complete ideal-gas part and the
+  leading residual terms) for superheated steam. Checked against steam tables: deviation below
+  0.1 % (a few % only right next to the saturation line above 120 bar, so the boiler pressure of
+  the Rankine cycle is limited to 120 bar).
+- **Cycles (`cycles.ts`):** Carnot, Joule/Brayton (with compressor and turbine efficiencies),
+  Otto, Diesel (air-standard, ideal gas) and Clausius–Rankine (pump, turbine efficiency). Energy
+  balance and an exergy balance per component (Gouy–Stodola, T₀·s_irr); tests check that supplied
+  exergy = net work + losses. The page draws T,s and p,v diagrams with draggable state points.
+- **Real gases (`realgas.ts`):** van der Waals, Redlich–Kwong, Peng–Robinson; roots of the cubic,
+  stable root by fugacity, vapour pressure from equal fugacities (= Maxwell's equal-area rule,
+  verified numerically), departure functions, numerical check of a Maxwell relation.
+- **Mixtures (`mixtures.ts`):** ideal gas mixtures (Dalton, mixing entropy) and liquid–liquid
+  miscibility gaps with the two-parameter Margules model: binodal (equal activities), spinodal,
+  upper critical solution temperature, lever rule.
+- **Humid air (`humidair.ts`):** Mollier h,x diagram in skewed coordinates; heating/cooling with
+  condensation, mixing, adiabatic humidification, dew point and wet-bulb temperature.
+- **Pipe flow (`fluid/pipe.ts`):** segments with diameter, length, height and fittings; Reynolds
+  number, laminar (64/Re) / transitional / turbulent (Colebrook–White) friction, Borda–Carnot and
+  contraction losses, static and total pressure along the pipe (extended Bernoulli), cavitation
+  where p < p_v; laminar parabola vs. turbulent power-law profile.
 
 ### Mechanics (`engine/mechanics/`)
 
