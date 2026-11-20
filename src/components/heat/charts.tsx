@@ -112,8 +112,8 @@ export function LineChartBox({
           ))}
           <Tooltip
             contentStyle={{ background: 'rgb(var(--plant-950))', border: '1px solid rgb(var(--white)/0.1)', fontSize: 10 }}
-            formatter={(v: number) => nf(v, digits + 2)}
-            labelFormatter={(l: number) => `${xLabel}: ${nf(l, digits + 2)}`}
+            formatter={(raw) => { const v = Number(raw); return nf(v, digits + 2); }}
+            labelFormatter={(raw) => { const l = Number(raw); return `${xLabel}: ${nf(l, digits + 2)}`; }}
           />
         </ComposedChart>
       </ResponsiveContainer>

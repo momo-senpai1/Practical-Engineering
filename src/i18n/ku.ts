@@ -6,6 +6,9 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Privacy": "Nepenîtî",
+  "Share link": "Girêdanê parve bike",
+  "Back to the start page": "Vegere rûpela destpêkê",
   "Export": "Derxistin",
   "Diagram as PNG": "Diyagram wek PNG",
   "PDF report (diagram + results)": "Rapora PDF",

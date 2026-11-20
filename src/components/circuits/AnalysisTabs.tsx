@@ -243,7 +243,7 @@ export function BodeTab() {
     let off = 0;
     let prev = 0;
     const ph = H.map((h, i) => {
-      let p = (Math.atan2(h.im, h.re) * 180) / Math.PI;
+      const p = (Math.atan2(h.im, h.re) * 180) / Math.PI;
       if (i) {
         while (p + off - prev > 180) off -= 360;
         while (p + off - prev < -180) off += 360;

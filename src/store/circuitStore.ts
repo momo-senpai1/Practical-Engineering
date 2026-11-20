@@ -3,6 +3,7 @@
 import { addEdge, applyEdgeChanges, applyNodeChanges, type Connection, type Edge, type EdgeChange, type Node, type NodeChange } from '@xyflow/react';
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { checkSheet, circuitSheet } from './sheetSchemas';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import { DEVICES, simulateTransient, solveCircuit, type CCircuit, type CircuitResult, type CKind, type CParams, type DeviceStates, type TransientResult } from '@/engine/circuits/solver';
 
@@ -45,7 +46,8 @@ interface CircuitState {
   load: (name: ExampleId) => void;
   clear: () => void;
   snapshot: () => unknown;
-  loadSheet: (p: unknown) => void;
+  /** false when the sheet is invalid (nothing is changed then) */
+  loadSheet: (p: unknown) => boolean;
 }
 
 const safe: StateStorage = {
@@ -400,10 +402,11 @@ export const useCircuit = create<CircuitState>()(
         edges: get().edges.map(({ id, type, source, sourceHandle, target, targetHandle }) => ({ id, type, source, sourceHandle, target, targetHandle })),
       }),
       loadSheet: (p) => {
-        const s = p as { nodes?: CNode[]; edges?: CEdge[]; analysis?: Analysis };
-        if (!Array.isArray(s.nodes) || !Array.isArray(s.edges)) return;
+        const s = checkSheet(circuitSheet, p);
+        if (!s) return false;
         dcStates = {};
-        set({ nodes: structuredClone(s.nodes).map((n) => ({ ...n, selected: false })), edges: structuredClone(s.edges), analysis: { ...get().analysis, ...s.analysis }, loadSeq: get().loadSeq + 1, lastRotate: null });
+        set({ nodes: (s.nodes as CNode[]).map((n) => ({ ...n, selected: false })), edges: s.edges as CEdge[], analysis: { ...get().analysis, ...s.analysis }, loadSeq: get().loadSeq + 1, lastRotate: null });
+        return true;
       },
     }),
     {

@@ -51,3 +51,32 @@ export function parseSheet(app: SheetApp, text: string): { name: string; payload
     return null;
   }
 }
+
+// ---------------------------------------------------------------------------
+// share by link: the sheet is compressed (deflate) and base64url-encoded into the URL hash
+
+const b64url = (b: Uint8Array) => {
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const unb64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+
+async function pipe(data: Uint8Array, stream: CompressionStream | DecompressionStream) {
+  const out = new Response(new Blob([data as BlobPart]).stream().pipeThrough(stream));
+  return new Uint8Array(await out.arrayBuffer());
+}
+
+export async function encodeSheet(payload: unknown): Promise<string> {
+  return b64url(await pipe(new TextEncoder().encode(JSON.stringify(payload)), new CompressionStream('deflate-raw')));
+}
+export async function decodeSheet(code: string): Promise<unknown | null> {
+  try {
+    if (code.length > 200_000) return null;
+    const raw = await pipe(unb64url(code), new DecompressionStream('deflate-raw'));
+    if (raw.length > 5_000_000) return null;
+    return JSON.parse(new TextDecoder().decode(raw));
+  } catch {
+    return null;
+  }
+}

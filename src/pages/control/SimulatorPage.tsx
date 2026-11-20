@@ -1,3 +1,4 @@
+import { ReactFlowProvider } from '@xyflow/react';
 import { FlipHorizontal2, Trash2 } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
 import { Tex } from '@/components/balance/Tex';
@@ -517,6 +518,14 @@ function Results() {
 }
 
 export default function SimulatorPage() {
+  return (
+    <ReactFlowProvider>
+      <Simulator />
+    </ReactFlowProvider>
+  );
+}
+
+function Simulator() {
   return (
     <div className="flex h-full min-h-0 gap-2">
       <Palette />

@@ -1,3 +1,4 @@
+import type { TipProps } from '@/lib/chartTip';
 import {
   CartesianGrid,
   Label,
@@ -10,13 +11,12 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import { axisTick, VIZ } from '@/components/analysis/vizTokens';
 import type { Shortcut } from '@/engine/mtDesign';
 import { fmt } from '@/lib/utils';
 
-function Tip({ active, payload }: TooltipProps<number, string>) {
+function Tip({ active, payload }: TipProps) {
   const p = payload?.[0]?.payload as { v: number; N: number } | undefined;
   if (!active || !p) return null;
   return (
