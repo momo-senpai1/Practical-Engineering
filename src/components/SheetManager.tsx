@@ -1,6 +1,7 @@
 import { Download, FolderOpen, Save, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { t } from '@/i18n';
+import { sharedExamples } from '@/examples';
 import { downloadSheet, parseSheet, useSheets, type SheetApp } from '@/store/sheetsStore';
 
 /** "My sheets": save the current sheet under a name, reopen, delete, export and import as a file. */
@@ -87,6 +88,22 @@ export function SheetManager({ app, current, apply }: { app: SheetApp; current: 
           }}
         />
       </div>
+    </div>
+  );
+}
+
+/** Sheets that ship with the website (src/examples/<app>/*.json). */
+export function SharedExamples({ app, apply }: { app: SheetApp; apply: (payload: unknown) => void }) {
+  const list = sharedExamples(app);
+  if (!list.length) return null;
+  return (
+    <div className="space-y-1">
+      <p className="tag mb-1 text-plant-400">{t('Shared examples')}</p>
+      {list.map((s) => (
+        <button key={s.name} type="button" onClick={() => apply(s.payload)} className="block w-full rounded border border-white/[0.08] px-2 py-1 text-left text-[11px] text-plant-200 hover:border-signal-vapor/40 hover:text-signal-vapor">
+          {s.name}
+        </button>
+      ))}
     </div>
   );
 }

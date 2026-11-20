@@ -6,6 +6,9 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Export": "Derxistin",
+  "Diagram as PNG": "Diyagram wek PNG",
+  "PDF report (diagram + results)": "Rapora PDF",
   "Save": "Tomar bike",
   "My sheets": "Rûpelên min",
   "Simulator": "Simulator",

@@ -2,7 +2,7 @@ import { FlipHorizontal2, Trash2 } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
 import { Tex } from '@/components/balance/Tex';
 import { SimCanvas, useSimulation } from '@/components/control/SimCanvas';
-import { SheetManager } from '@/components/SheetManager';
+import { SharedExamples, SheetManager } from '@/components/SheetManager';
 import { ALL, SpecEditor } from '@/components/control/SpecEditor';
 import { LineChartBox } from '@/components/heat/charts';
 import { fieldCls, nf, Num } from '@/components/mechanics/common';
@@ -50,6 +50,9 @@ function Palette() {
       </div>
       <div className="mt-auto border-t border-white/[0.05] p-3">
         <SheetManager app="control-sim" current={snapshot} apply={loadSheet} />
+        <div className="mt-3">
+          <SharedExamples app="control-sim" apply={loadSheet} />
+        </div>
       </div>
       <div className="space-y-1 border-t border-white/[0.05] p-3">
         <p className="tag mb-1 text-plant-400">{t('Examples')}</p>
@@ -501,7 +504,7 @@ function Results() {
           {r.ok ? <span className="text-signal-ok">{t('simulated')} · Δt = {nf(settings.tEnd / Math.max(100, settings.steps), 3)} s</span> : <span className="text-signal-alarm">{t('not simulated')}</span>}
         </span>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+      <div data-export="sim-results" className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {r.warnings.map((w, i) => (
           <Notice key={i} tone={/unstable|improper/.test(w.key) ? 'error' : 'warning'}>
             {t(w.key, w.vars)}

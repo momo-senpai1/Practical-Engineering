@@ -1,5 +1,6 @@
 /** Circuit component node, wire edge and canvas. */
 
+import { ExportMenu } from '@/components/ExportMenu';
 import {
   Background,
   BackgroundVariant,
@@ -264,6 +265,7 @@ export function CircuitCanvas() {
         <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
       <div className="pointer-events-none absolute left-3 top-3 font-mono text-[9px] tracking-[0.2em] text-plant-500">{t('CIRCUIT')}</div>
+      <ExportMenu title={t('Circuit')} resultsSelector='[data-export="circuit-results"]' />
     </div>
   );
 }

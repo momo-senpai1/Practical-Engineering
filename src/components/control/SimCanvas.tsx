@@ -17,6 +17,7 @@ import {
 import { useCallback, useEffect, useMemo, type DragEvent } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Tex } from '@/components/balance/Tex';
+import { ExportMenu } from '@/components/ExportMenu';
 import { nf } from '@/components/mechanics/common';
 import { nInputs, simulate, type SimBlock, type SimBlockData, type SimResult, type SimWire } from '@/engine/control/blocksim';
 import { BLOCK_INFO } from '@/engine/control/loop';
@@ -255,6 +256,7 @@ export function SimCanvas() {
         <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
       <div className="pointer-events-none absolute left-3 top-3 font-mono text-[9px] tracking-[0.2em] text-plant-500">{t('BLOCK DIAGRAM')}</div>
+      <ExportMenu title={t('Block diagram')} resultsSelector='[data-export="sim-results"]' />
     </div>
   );
 }
