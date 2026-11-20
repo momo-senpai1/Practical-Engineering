@@ -13,6 +13,12 @@ const AbsorptionPage = lazy(() => import('@/pages/AbsorptionPage'));
 const EvaporationPage = lazy(() => import('@/pages/EvaporationPage'));
 const CrystallizationPage = lazy(() => import('@/pages/CrystallizationPage'));
 const DryingPage = lazy(() => import('@/pages/DryingPage'));
+const CyclesPage = lazy(() => import('@/pages/thermo/CyclesPage'));
+const SteamPage = lazy(() => import('@/pages/thermo/SteamPage'));
+const RealGasPage = lazy(() => import('@/pages/thermo/RealGasPage'));
+const MixturesPage = lazy(() => import('@/pages/thermo/MixturesPage'));
+const HumidAirPage = lazy(() => import('@/pages/thermo/HumidAirPage'));
+const PipePage = lazy(() => import('@/pages/fluid/PipePage'));
 const FormulasPage = lazy(() => import('@/pages/tools/FormulasPage'));
 const UnitsPage = lazy(() => import('@/pages/tools/UnitsPage'));
 const PrivacyPage = lazy(() => import('@/pages/PrivacyPage'));
@@ -68,6 +74,18 @@ export default function App() {
                   <HomePage />
                 ) : route === 'privacy' ? (
                   <PrivacyPage />
+                ) : route === 'cycles' ? (
+                  <CyclesPage />
+                ) : route === 'steam' ? (
+                  <SteamPage />
+                ) : route === 'realgas' ? (
+                  <RealGasPage />
+                ) : route === 'mixtures' ? (
+                  <MixturesPage />
+                ) : route === 'humidair' ? (
+                  <HumidAirPage />
+                ) : route === 'pipe' ? (
+                  <PipePage />
                 ) : route === 'formulas' ? (
                   <FormulasPage />
                 ) : route === 'units' ? (

@@ -4,6 +4,12 @@ export type Route =
   | 'home'
   | 'privacy'
   | 'formulas'
+  | 'cycles'
+  | 'steam'
+  | 'realgas'
+  | 'mixtures'
+  | 'humidair'
+  | 'pipe'
   | 'units'
   | 'flowsheet'
   | 'mccabe-thiele'
@@ -30,13 +36,14 @@ export type Route =
   | 'bode'
   | 'filters'
   | 'fourier';
-const ROUTES: readonly Route[] = ['home', 'privacy', 'formulas', 'units', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion', 'control-sim', 'control', 'bode', 'filters', 'fourier'];
+const ROUTES: readonly Route[] = ['home', 'privacy', 'formulas', 'units', 'cycles', 'steam', 'realgas', 'mixtures', 'humidair', 'pipe', 'flowsheet', 'mccabe-thiele', 'batch', 'distillation-lines', 'extraction', 'absorption', 'evaporation', 'crystallization', 'drying', 'circuits', 'beam', 'truss', 'torsion', 'conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion', 'control-sim', 'control', 'bode', 'filters', 'fourier'];
 
-export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics' | 'control' | 'tools';
+export type Section = 'thermal' | 'heat' | 'circuits' | 'mechanics' | 'control' | 'tools' | 'thermo' | 'fluid';
+const THERMO: readonly Route[] = ['cycles', 'steam', 'realgas', 'mixtures', 'humidair'];
 const CONTROL: readonly Route[] = ['control-sim', 'control', 'bode', 'filters', 'fourier'];
 const HEAT: readonly Route[] = ['conduction', 'fin', 'transient', 'convection', 'radiation', 'exchanger', 'diffusion'];
 export const SECTION_OF = (r: Route): Section | null =>
-  r === 'home' || r === 'privacy' ? null : r === 'formulas' || r === 'units' ? 'tools' : CONTROL.includes(r) ? 'control' : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';
+  r === 'home' || r === 'privacy' ? null : r === 'formulas' || r === 'units' ? 'tools' : THERMO.includes(r) ? 'thermo' : r === 'pipe' ? 'fluid' : CONTROL.includes(r) ? 'control' : HEAT.includes(r) ? 'heat' : r === 'circuits' ? 'circuits' : r === 'beam' || r === 'truss' || r === 'torsion' ? 'mechanics' : 'thermal';
 
 function parse(): { route: Route; params: URLSearchParams } {
   const raw = window.location.hash.replace(/^#\/?/, '');

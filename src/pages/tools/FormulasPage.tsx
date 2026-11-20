@@ -6,7 +6,7 @@ import { t } from '@/i18n';
 import { navigate, type Route } from '@/lib/route';
 import { cn } from '@/lib/utils';
 
-const SUBJECTS: Formula['subject'][] = ['Thermal separation', 'Heat & mass transfer', 'Electrical circuits', 'Control engineering', 'Mechanics'];
+const SUBJECTS: Formula['subject'][] = ['Thermal separation', 'Heat & mass transfer', 'Thermodynamics', 'Fluid mechanics', 'Electrical circuits', 'Control engineering', 'Mechanics'];
 
 export default function FormulasPage() {
   const [q, setQ] = useState('');

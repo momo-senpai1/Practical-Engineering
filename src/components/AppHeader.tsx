@@ -48,6 +48,14 @@ const NAV: Record<Section, (NavItem | NavGroup)[]> = {
     { route: 'filters', label: 'Filters' },
     { route: 'fourier', label: 'Fourier / FFT' },
   ],
+  thermo: [
+    { route: 'cycles', label: 'Cycles (T,s / p,v)' },
+    { route: 'steam', label: 'Steam table' },
+    { route: 'realgas', label: 'Real gases' },
+    { route: 'mixtures', label: 'Mixtures' },
+    { route: 'humidair', label: 'Humid air (h,x)' },
+  ],
+  fluid: [{ route: 'pipe', label: 'Pipe flow & Bernoulli' }],
   tools: [
     { route: 'formulas', label: 'Formula collection' },
     { route: 'units', label: 'Unit converter' },
@@ -60,6 +68,8 @@ export const SECTIONS: { id: Section; label: string; home: Route }[] = [
   { id: 'circuits', label: 'Electrical Circuits', home: 'circuits' },
   { id: 'mechanics', label: 'Mechanics', home: 'beam' },
   { id: 'control', label: 'Control Engineering', home: 'control-sim' },
+  { id: 'thermo', label: 'Thermodynamics', home: 'cycles' },
+  { id: 'fluid', label: 'Fluid Mechanics', home: 'pipe' },
   { id: 'tools', label: 'Tools', home: 'formulas' },
 ];
 

@@ -91,6 +91,37 @@ const AREAS: Area[] = [
     ],
   },
   {
+    title: 'Thermodynamics',
+    lead: 'Thermodynamics I and II: cycles in T,s and p,v diagrams with draggable state points, water and steam, real gases, mixtures and humid air.',
+    accent: 'var(--sig-alarm)',
+    icon: (
+      <>
+        <path d="M4 20V4M4 20h16" />
+        <path d="M7 16c3-9 7-9 10 0" />
+        <path d="M9 9h6v7H9z" />
+      </>
+    ),
+    modules: [
+      { route: 'cycles', label: 'Cycles (T,s / p,v)', desc: 'Carnot, Clausius–Rankine, Joule, Otto, Diesel: efficiency and exergy loss live' },
+      { route: 'steam', label: 'Steam table', desc: 'Water and steam from p, T, x, h or s; saturation table' },
+      { route: 'realgas', label: 'Real gases', desc: 'van der Waals, Redlich–Kwong, Peng–Robinson, Maxwell construction, Z chart' },
+      { route: 'mixtures', label: 'Mixtures', desc: 'Miscibility gap (binodal, spinodal, lever rule), ideal gas mixtures' },
+      { route: 'humidair', label: 'Humid air (h,x)', desc: 'Mollier diagram: heating, cooling, mixing, humidification' },
+    ],
+  },
+  {
+    title: 'Fluid Mechanics',
+    lead: 'Pipe flow and Bernoulli lab: diameter, roughness and flow rate adjustable, Reynolds number and the switch between laminar and turbulent profile live, pressure loss and cavitation at constrictions.',
+    accent: 'var(--sig-liquid)',
+    icon: (
+      <>
+        <path d="M2 8h7l3 3h10M2 16h7l3-3h10" />
+        <path d="M4 12h3M15 12h5" />
+      </>
+    ),
+    modules: [{ route: 'pipe', label: 'Pipe flow & Bernoulli', desc: 'Re, λ (Colebrook), losses, energy line, cavitation, Moody diagram' }],
+  },
+  {
     title: 'Tools',
     lead: 'The formulas behind the simulators in one searchable collection, and a unit converter for the quantities of the engineering lectures.',
     accent: 'var(--plant-300)',
@@ -101,7 +132,7 @@ const AREAS: Area[] = [
       </>
     ),
     modules: [
-      { route: 'formulas', label: 'Formula collection', desc: 'About 50 formulas with symbols, each linked to its simulator' },
+      { route: 'formulas', label: 'Formula collection', desc: 'About 65 formulas with symbols, each linked to its simulator' },
       { route: 'units', label: 'Unit converter', desc: 'Pressure, energy, flows, viscosity, λ, α and more' },
     ],
   },

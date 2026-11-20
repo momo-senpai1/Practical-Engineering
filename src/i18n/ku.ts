@@ -6,6 +6,11 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Thermodynamics": "Termodînamîk",
+  "Fluid Mechanics": "Mekanîka herikbaran",
+  "Steam table": "Tabloya buharê",
+  "Real gases": "Gazên rastîn",
+  "Mixtures": "Tevlihevî",
   "Tools": "Amûr",
   "Formula collection": "Berhevoka formulan",
   "Unit converter": "Guherînera yekîneyan",
