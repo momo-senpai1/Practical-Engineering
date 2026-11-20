@@ -4,10 +4,11 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { Tex } from '@/components/balance/Tex';
 import { ALL, SpecEditor } from '@/components/control/SpecEditor';
+import { StepTutor, type TutorStep } from '@/components/StepTutor';
 import { LineChartBox } from '@/components/heat/charts';
 import { Card, fieldCls, newId, nf, safeStorage } from '@/components/mechanics/common';
 import { Kpi, Notice } from '@/components/workbench/controls';
-import { BLOCK_INFO, blockTF, reduceLoop, type BlockSpec, type LoopBlock, type LoopSpec } from '@/engine/control/loop';
+import { BLOCK_INFO, blockTF, reduceLoop, type BlockSpec, type LoopBlock, type LoopSpec, type ReduceStep } from '@/engine/control/loop';
 import { bode, cTex, freq, margins, normalize, roots, routh, stepInfo, stepResponse, tfTex, type C } from '@/engine/control/poly';
 import { t } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -177,17 +178,13 @@ export default function ControlLoopPage() {
           <LoopDiagram loop={loop} />
         </Card>
         <Card title="Block diagram reduction (solution path)">
-          <ol className="space-y-1.5 text-[13px] text-plant-100">
-            {r.steps.map((s, i) => (
-              <li key={i} className="rounded border border-white/[0.04] px-2 py-1">
-                <p className="text-[10px] text-plant-500">
-                  {i + 1}. {stepTitle(s.title)}
-                  {s.rule === 'parallel' || s.rule === 'feedback' || s.rule === 'series' ? ` · ${t({ parallel: 'rule: G₁ + G₂', feedback: 'rule: G / (1 ± G·H)', series: 'rule: G₁ · G₂' }[s.rule])}` : ''}
-                </p>
-                <Tex math={s.formula} block />
-              </li>
-            ))}
-          </ol>
+          <div className="text-[13px] text-plant-100">
+            <StepTutor
+              resetKey={JSON.stringify(loop)}
+              steps={r.steps.map((s) => loopTutorStep(s))}
+              final={<p className="text-[10px] text-plant-500">{t('Done: T(s) describes how the output follows the reference.')}</p>}
+            />
+          </div>
         </Card>
         <div className="grid gap-2 lg:grid-cols-2">
           <Card title="Step response">
@@ -252,6 +249,35 @@ export default function ControlLoopPage() {
       </div>
     </div>
   );
+}
+
+const RULE_HINTS: Record<ReduceStep['rule'], [string, string, string]> = {
+  parallel: ['Both blocks get the same input and their outputs are added.', 'G = G_1 + G_2', 'Bring both fractions to a common denominator and add the numerators.'],
+  feedback: ['The output of the block is fed back to its own input: a loop inside the loop.', 'G_{cl} = \\frac{G}{1 \\pm G\\,H}', 'For negative feedback the denominator is 1 + G·H. Multiply numerator and denominator by the denominators of G and H.'],
+  series: ['The blocks follow one after the other: the output of one is the input of the next.', 'G = G_1 \\cdot G_2 \\cdots', 'Multiply all numerators and all denominators.'],
+  open: ['Cut the loop at the summing point and go once around it.', 'L(s) = G_F(s)\\,G_R(s)', 'Multiply the forward path by the feedback path.'],
+  closed: ['From the reference w to the output y, with the main feedback closed.', 'T(s) = \\frac{G_F}{1 + G_F\\,G_R} = \\frac{G_F}{1 + L}', 'Insert G_F and L and simplify to one fraction. Check: T(0) is the static gain.'],
+};
+
+/** Tutor version of a reduction step; the closed loop can be checked by its static gain T(0). */
+function loopTutorStep(s: ReduceStep): TutorStep {
+  const h = RULE_HINTS[s.rule];
+  const g = normalize(s.result);
+  const static0 = g.den[0] && Number.isFinite(g.num[0]! / g.den[0]!) ? g.num[0]! / g.den[0]! : null;
+  return {
+    title: s.rule === 'closed' ? `${stepTitle(s.title)} — ${t('enter the static gain T(0)')}` : stepTitle(s.title),
+    hints: [t(h[0]), h[1], t(h[2])],
+    solution: (
+      <>
+        <p className="text-[10px] text-plant-500">
+          {stepTitle(s.title)}
+          {s.rule === 'parallel' || s.rule === 'feedback' || s.rule === 'series' ? ` · ${t({ parallel: 'rule: G₁ + G₂', feedback: 'rule: G / (1 ± G·H)', series: 'rule: G₁ · G₂' }[s.rule])}` : ''}
+        </p>
+        <Tex math={s.formula} block />
+      </>
+    ),
+    answer: s.rule === 'closed' && static0 !== null ? { value: static0, unit: '', mistakes: [{ value: static0 === 0 ? NaN : 1 / static0, key: 'You inverted the fraction: T = G_F/(1 + L), not (1 + L)/G_F.' }] } : undefined,
+  };
 }
 
 /** "R: parallel branch" → block name kept, rest translated. */

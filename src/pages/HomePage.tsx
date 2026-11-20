@@ -90,6 +90,21 @@ const AREAS: Area[] = [
       { route: 'fourier', label: 'Fourier / FFT', desc: 'Fourier series, Gibbs, FFT spectrum, windows, aliasing' },
     ],
   },
+  {
+    title: 'Tools',
+    lead: 'The formulas behind the simulators in one searchable collection, and a unit converter for the quantities of the engineering lectures.',
+    accent: 'var(--plant-300)',
+    icon: (
+      <>
+        <path d="M4 4h16v16H4z" />
+        <path d="M8 9h8M8 13h5M8 17h3" />
+      </>
+    ),
+    modules: [
+      { route: 'formulas', label: 'Formula collection', desc: 'About 50 formulas with symbols, each linked to its simulator' },
+      { route: 'units', label: 'Unit converter', desc: 'Pressure, energy, flows, viscosity, λ, α and more' },
+    ],
+  },
 ];
 
 export default function HomePage() {

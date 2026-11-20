@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Tex } from '@/components/balance/Tex';
+import { StepTutor, type TutorStep } from '@/components/StepTutor';
 import { LineChartBox } from '@/components/heat/charts';
 import { Notice } from '@/components/workbench/controls';
 import { lampR, ldrR, ntcR, pinsOf, type CComponent } from '@/engine/circuits/devices';
@@ -160,26 +161,82 @@ export function SimplifyTab() {
 function Steps({ red }: { red: ReturnType<typeof reduceNetwork> }) {
   if (red.error === 'nonlinear')
     return <Notice tone="warning">{t('Only resistors, lamps, capacitors, inductors and similar two-terminal parts can be combined. Not supported here: {list}.', { list: red.unsupported.join(', ') })}</Notice>;
+  const steps = red.steps.map(tutorStep);
   return (
     <div className="space-y-1 text-[13px] text-plant-100">
-      <ol className="space-y-1">
-        {red.steps.map((s, i) => (
-          <li key={i} className="flex gap-2 rounded border border-white/[0.04] px-2 py-1">
-            <span className="mt-1 font-mono text-[10px] text-plant-500">{i + 1}.</span>
-            <StepView s={s} />
-          </li>
-        ))}
-      </ol>
-      {red.error === 'open' && <Notice tone="info">{t('No path between the two nodes: the equivalent resistance is infinite (open circuit).')}</Notice>}
-      {red.error === 'stuck' && red.Z && <Notice tone="info">{t('A node with four or more branches remains; the rest is evaluated by nodal analysis.')}</Notice>}
-      {red.Z && (
-        <div className="text-signal-vapor">
-          <Tex block math={`\\Rightarrow\\ Z_{ers} = ${zTex(red.Z)}`} />
-        </div>
-      )}
-      {red.check && red.Z && <p className="text-[10px] text-plant-500">{t('Check by nodal analysis: {z}', { z: `${si(cabs(red.check), 'Ω')}` })}</p>}
+      <StepTutor
+        steps={steps}
+        resetKey={JSON.stringify(red.steps.map((x) => ('Z' in x ? [x.kind, x.Z.re, x.Z.im] : x.kind)))}
+        final={
+          <>
+            {red.error === 'open' && <Notice tone="info">{t('No path between the two nodes: the equivalent resistance is infinite (open circuit).')}</Notice>}
+            {red.error === 'stuck' && red.Z && <Notice tone="info">{t('A node with four or more branches remains; the rest is evaluated by nodal analysis.')}</Notice>}
+            {red.Z && (
+              <div className="text-signal-vapor">
+                <Tex block math={`\\Rightarrow\\ Z_{ers} = ${zTex(red.Z)}`} />
+              </div>
+            )}
+            {red.check && red.Z && <p className="text-[10px] text-plant-500">{t('Check by nodal analysis: {z}', { z: `${si(cabs(red.check), 'Ω')}` })}</p>}
+          </>
+        }
+      />
     </div>
   );
+}
+
+const isReal = (z: { re: number; im: number }) => Math.abs(z.im) <= 1e-9 * Math.max(1, Math.abs(z.re));
+const plain = (sym: string) => sym.replace(/_\{([^}]*)\}/g, '$1').replace(/\\mathrm\{([^}]*)\}/g, '$1');
+const zPlain = (z: { re: number; im: number }) => (isReal(z) ? si(z.re, 'Ω') : `${si(z.re, '')} ${z.im < 0 ? '−' : '+'} j${si(Math.abs(z.im), 'Ω')}`);
+
+/** Tutor version of a reduction step: task, three hints, worked solution, answer check. */
+function tutorStep(s: RStep): TutorStep {
+  const solution = <StepView s={s} />;
+  switch (s.kind) {
+    case 'short':
+      return { title: t('What happens to {name}?', { name: s.text }), hints: [t('For the equivalent resistance all independent sources are set to zero.'), 'U_q = 0', t('A voltage source with U = 0 is a plain wire.')], solution };
+    case 'remove':
+      return { title: t('What happens to {name}?', { name: s.text }), hints: [t('For the equivalent resistance all independent sources are set to zero.'), 'I_q = 0', t('A current source with I = 0 is an open connection.')], solution };
+    case 'dead':
+      return { title: t('Look at {name}', { name: plain(s.sym) }), hints: [t('One end of this element is connected to nothing else.'), 'I = 0', t('No current flows through it, so it does not contribute and can be removed.')], solution };
+    case 'series': {
+      const real = s.Zs.every(isReal) && isReal(s.Z);
+      const par = 1 / s.Zs.reduce((a, z) => a + 1 / z.re, 0);
+      return {
+        title: t('Combine {parts}', { parts: s.parts.map(plain).join(', ') }),
+        hints: [
+          t('These elements are connected one after the other with no branch in between: the same current flows through all of them.'),
+          `${s.sym} = ${s.parts.join(' + ')}`,
+          t('Add the values: {vals}.', { vals: s.Zs.map((z) => zPlain(z)).join(' + ') }),
+        ],
+        solution,
+        answer: real ? { value: s.Z.re, unit: 'Ω', mistakes: [{ value: par, key: 'You used the parallel formula. These elements are in series (same current), so the resistances simply add.' }] } : undefined,
+      };
+    }
+    case 'parallel': {
+      const real = s.Zs.every(isReal) && isReal(s.Z);
+      const ser = s.Zs.reduce((a, z) => a + z.re, 0);
+      return {
+        title: t('Combine {parts}', { parts: s.parts.map(plain).join(', ') }),
+        hints: [
+          t('Both elements connect the same two nodes: they share the same voltage.'),
+          s.parts.length === 2 ? `${s.sym} = \\frac{${s.parts[0]} \\cdot ${s.parts[1]}}{${s.parts[0]} + ${s.parts[1]}}` : `\\frac{1}{${s.sym}} = ${s.parts.map((x) => `\\frac{1}{${x}}`).join(' + ')}`,
+          t('Product over sum (or add the conductances 1/R). The result must be smaller than the smallest single value.'),
+        ],
+        solution,
+        answer: real ? { value: s.Z.re, unit: 'Ω', mistakes: [{ value: ser, key: 'You added the resistances. In parallel the conductances 1/R add, so the result is smaller than the smallest resistor.' }] } : undefined,
+      };
+    }
+    case 'stardelta':
+      return {
+        title: t('A node has three branches: transform the star into a delta'),
+        hints: [
+          t('Neither series nor parallel applies here. A star of three elements can be replaced by an equivalent delta between its three outer nodes.'),
+          `Z_{\\Delta} = \\frac{Z_1 Z_2 + Z_2 Z_3 + Z_3 Z_1}{Z_{\\text{opposite}}}`,
+          t('Compute the sum of the pairwise products once, then divide it by the opposite star element for each delta element.'),
+        ],
+        solution,
+      };
+  }
 }
 
 function StepView({ s }: { s: RStep }) {

@@ -6,6 +6,12 @@
 
 export const KU: Record<string, string> = {
   // navigation & shell
+  "Tools": "Amûr",
+  "Formula collection": "Berhevoka formulan",
+  "Unit converter": "Guherînera yekîneyan",
+  "Correct!": "Rast e!",
+  "Check": "Kontrol bike",
+  "Hint": "Nîşe",
   "Privacy": "Nepenîtî",
   "Share link": "Girêdanê parve bike",
   "Back to the start page": "Vegere rûpela destpêkê",

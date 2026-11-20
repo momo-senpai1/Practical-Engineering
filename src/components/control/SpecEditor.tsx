@@ -3,10 +3,14 @@ import { Tex } from '@/components/balance/Tex';
 import { fieldCls, Num } from '@/components/mechanics/common';
 import { BLOCK_INFO, type BlockKind, type BlockSpec } from '@/engine/control/loop';
 import { t } from '@/i18n';
+import { ControllerHelp } from './ControllerHelp';
+import { sanitizeSpec } from '@/lib/guard';
 
 const PARAM_LABEL: Record<string, string> = { K: 'K', T: 'T [s]', Ti: 'T_i [s]', Td: 'T_d [s]', zeta: 'D (ζ)', n: 'n', alpha: 'α', Tt: 'T_t [s]' };
 
-export function SpecEditor({ spec, onChange, kinds }: { spec: BlockSpec; onChange: (s: BlockSpec) => void; kinds: BlockKind[] }) {
+export function SpecEditor({ spec, onChange: rawChange, kinds }: { spec: BlockSpec; onChange: (s: BlockSpec) => void; kinds: BlockKind[] }) {
+  // keep parameters in the range the solvers handle (e.g. integer order n ≤ 20)
+  const onChange = (s: BlockSpec) => rawChange(sanitizeSpec(s));
   const info = BLOCK_INFO[spec.kind];
   const [numText, setNumText] = useState((spec.num ?? [1]).slice().reverse().join(' '));
   const [denText, setDenText] = useState((spec.den ?? [1, 1]).slice().reverse().join(' '));
@@ -50,6 +54,7 @@ export function SpecEditor({ spec, onChange, kinds }: { spec: BlockSpec; onChang
           ))}
         </div>
       )}
+      <ControllerHelp kind={spec.kind} />
     </div>
   );
 }

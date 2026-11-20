@@ -1,6 +1,7 @@
 import { ReactFlowProvider } from '@xyflow/react';
-import { FlipHorizontal2, Trash2 } from 'lucide-react';
+import { FlipHorizontal2, Pin, Trash2 } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
+import { create } from 'zustand';
 import { Tex } from '@/components/balance/Tex';
 import { SimCanvas, useSimulation } from '@/components/control/SimCanvas';
 import { SharedExamples, SheetManager } from '@/components/SheetManager';
@@ -12,6 +13,7 @@ import { blockG, filterTF, hasOutput, isDyn, linearTF, openLoopTF, type SimBlock
 import type { Approx, FType } from '@/engine/control/filters';
 import { bode, cTex, margins, roots, stepInfo, stepResponse, tfTex, type TF } from '@/engine/control/poly';
 import { t } from '@/i18n';
+import { attempt } from '@/lib/guard';
 import { cn } from '@/lib/utils';
 import { PRESETS, SIM_DND, SIM_EXAMPLES, useControlSim, type SNode } from '@/store/controlSimStore';
 
@@ -240,24 +242,64 @@ function Inspector() {
 
 const COLORS = ['rgb(var(--sig-liquid))', 'rgb(var(--plant-400))', 'rgb(var(--sig-vapor))', 'rgb(var(--sig-heat))'];
 
+/** Curves kept for comparison ("remember curve"), per scope; not saved with the sheet. */
+interface Pinned {
+  label: string;
+  t: number[];
+  traces: { name: string; data: number[] }[];
+}
+const usePinned = create<{ pins: Record<string, Pinned[]>; add: (id: string, p: Pinned) => void; clear: (id: string) => void }>()((set, get) => ({
+  pins: {},
+  add: (id, p) => set({ pins: { ...get().pins, [id]: [...(get().pins[id] ?? []), p].slice(-3) } }),
+  clear: (id) => set({ pins: { ...get().pins, [id]: [] } }),
+}));
+
 function ScopeTab() {
-  const { r } = useSimulation();
+  const { r, blocks } = useSimulation();
+  const pins = usePinned((s) => s.pins);
+  const addPin = usePinned((s) => s.add);
+  const clearPins = usePinned((s) => s.clear);
   if (!r.ok) return null;
   if (!r.scopes.length) return <Notice tone="info">{t('Place a scope and wire the signals you want to see into it.')}</Notice>;
   const step = Math.max(1, Math.floor(r.t.length / 800));
+  /** short description of the current parameters, used as the label of a remembered curve */
+  const describe = () =>
+    blocks
+      .filter((b) => b.data.kind === 'tf' || b.data.kind === 'gain')
+      .map((b) => (b.data.kind === 'gain' ? `${b.data.name}: K=${nf(b.data.K ?? 1, 3)}` : `${b.data.name}: ${Object.entries(b.data.spec ?? {}).filter(([k, v]) => k !== 'kind' && typeof v === 'number').map(([k, v]) => `${k}=${nf(v as number, 3)}`).join(' ')}`))
+      .join(' · ');
   return (
     <div className={cn('grid gap-3', r.scopes.length > 1 && 'xl:grid-cols-2')}>
       {r.scopes.map((sc) => {
         const main = sc.traces[0];
         const fin = main?.data.at(-1) ?? 0;
         const info = main ? stepInfo(r.t, main.data, fin) : null;
+        const old = pins[sc.id] ?? [];
         return (
           <div key={sc.id} className="space-y-1">
-            <p className="text-[11px] font-semibold text-plant-200">{sc.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-semibold text-plant-200">{sc.name}</p>
+              {sc.traces.length > 0 && (
+                <button type="button" onClick={() => addPin(sc.id, { label: describe() || `#${old.length + 1}`, t: r.t, traces: sc.traces.slice(0, 1).map((tr) => ({ name: tr.name, data: tr.data })) })} className="flex items-center gap-1 rounded border border-white/[0.08] px-1.5 py-0.5 text-[10px] text-plant-300 hover:text-signal-vapor">
+                  <Pin className="h-3 w-3" /> {t('Remember curve for comparison')}
+                </button>
+              )}
+              {old.length > 0 && (
+                <button type="button" onClick={() => clearPins(sc.id)} className="text-[10px] text-plant-500 hover:text-signal-alarm">
+                  {t('Clear comparison')}
+                </button>
+              )}
+            </div>
             {sc.traces.length ? (
               <>
                 <LineChartBox
-                  series={sc.traces.map((tr, k) => ({ name: tr.name, data: r.t.filter((_, i) => i % step === 0).map((tt, i) => ({ x: tt, y: tr.data[i * step]! })), color: COLORS[k % 4], dashed: k === 1 }))}
+                  series={[
+                    ...old.map((pc, j) => {
+                      const st = Math.max(1, Math.floor(pc.t.length / 800));
+                      return { name: `${pc.traces[0]!.name} (${t('remembered')} ${j + 1})`, data: pc.t.filter((_, i) => i % st === 0).map((tt, i) => ({ x: tt, y: pc.traces[0]!.data[i * st]! })), color: PIN_COLORS[j % 3], dashed: true };
+                    }),
+                    ...sc.traces.map((tr, k) => ({ name: tr.name, data: r.t.filter((_, i) => i % step === 0).map((tt, i) => ({ x: tt, y: tr.data[i * step]! })), color: COLORS[k % 4], dashed: k === 1 })),
+                  ]}
                   xLabel="t [s]"
                   yLabel=""
                   height={220}
@@ -271,6 +313,11 @@ function ScopeTab() {
                     {info ? ` · ${t('Settling time')} (2 %) ${nf(info.settling, 3)} s` : ''}
                   </p>
                 )}
+                {old.map((pc, j) => (
+                  <p key={j} className="font-mono text-[9px] text-plant-500">
+                    {t('remembered')} {j + 1}: {pc.label}
+                  </p>
+                ))}
               </>
             ) : (
               <p className="text-[10px] text-plant-500">{t('No signal connected.')}</p>
@@ -281,6 +328,8 @@ function ScopeTab() {
     </div>
   );
 }
+
+const PIN_COLORS = ['rgb(var(--plant-400))', 'rgb(var(--sig-heat))', 'rgb(var(--sig-alarm))'];
 
 const CURVE_COLORS = ['rgb(var(--sig-liquid))', 'rgb(var(--sig-vapor))', 'rgb(var(--sig-heat))', 'rgb(var(--sig-alarm))', 'rgb(var(--plant-300))'];
 
@@ -293,11 +342,11 @@ function BodeTab() {
     const o: { id: string; label: string; open: boolean; tf: TF | null }[] = [];
     for (const b of blocks) {
       if (b.data.kind !== 'sum') continue;
-      const L = openLoopTF(blocks, wires, b.id);
+      const L = attempt(() => openLoopTF(blocks, wires, b.id), (msg) => ({ ok: false, error: msg, T: null, eqs: [], linearised: [] }));
       if (L.ok && L.T) o.push({ id: `L:${b.id}`, label: t('Open loop L (cut at {name})', { name: b.data.name }), open: true, tf: L.T });
     }
     if (src && out) {
-      const T = linearTF(blocks, wires, src.id, out.id);
+      const T = attempt(() => linearTF(blocks, wires, src.id, out.id), (msg) => ({ ok: false, error: msg, T: null, eqs: [], linearised: [] }));
       if (T.ok && T.T) o.push({ id: 'T', label: `${t('Transfer function')} ${src.data.name} → ${out.data.name}`, open: false, tf: T.T });
     }
     for (const b of blocks) if (isDyn(b.data) || b.data.kind === 'gain') o.push({ id: `G:${b.id}`, label: `${t('Block')} ${b.data.name}`, open: false, tf: blockG(b.data) });
@@ -399,7 +448,7 @@ function TFTab() {
   const settings = useControlSim((s) => s.settings);
   const setSettings = useControlSim((s) => s.setSettings);
   const { sources, outs, src, out } = pickSrcOut(blocks, wires, settings);
-  const lin = useMemo(() => (src && out ? linearTF(blocks, wires, src.id, out.id) : null), [blocks, wires, src, out]);
+  const lin = useMemo(() => (src && out ? attempt(() => linearTF(blocks, wires, src.id, out.id), (msg) => ({ ok: false, error: msg, T: null, eqs: [], linearised: [] })) : null), [blocks, wires, src, out]);
   const T = lin?.T ?? null;
   const poles = useMemo(() => (T ? roots(T.den) : []), [T]);
   const stable = poles.every((p) => p.re < -1e-9);
