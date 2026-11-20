@@ -125,7 +125,7 @@ export function resultTex(step: Step, p: BProblem): string {
   return step.solved
     .map((s) => {
       const u = unitOf(s.key);
-      return `${varTex(s.key, p)} = ${numTex(s.value)}${u ? `\\ \\mathrm{${u.replace('/', '/')}}` : ''}`;
+      return `${varTex(s.key, p)} = ${numTex(s.value)}${u ? `\\ \\mathrm{${u}}` : ''}`;
     })
     .join(',\\quad ');
 }
