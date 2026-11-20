@@ -19,9 +19,10 @@ import { useShallow } from 'zustand/react/shallow';
 import { Tex } from '@/components/balance/Tex';
 import { ExportMenu } from '@/components/ExportMenu';
 import { nf } from '@/components/mechanics/common';
-import { nInputs, simulate, type SimBlock, type SimBlockData, type SimResult, type SimWire } from '@/engine/control/blocksim';
+import { nInputs, type SimBlock, type SimBlockData, type SimResult, type SimWire } from '@/engine/control/blocksim';
 import { BLOCK_INFO } from '@/engine/control/loop';
 import { t } from '@/i18n';
+import { runSimulation } from '@/lib/guard';
 import { cn } from '@/lib/utils';
 import { SIM_DND, useControlSim, type SNode } from '@/store/controlSimStore';
 
@@ -35,9 +36,7 @@ export function useSimulation() {
   const wires: SimWire[] = edges.filter((e) => e.targetHandle).map((e) => ({ source: e.source, target: e.target, targetHandle: e.targetHandle! }));
   const key = JSON.stringify([blocks, wires, settings.tEnd, settings.steps]);
   if (cache?.key !== key) {
-    const tEnd = Math.max(settings.tEnd, 1e-3);
-    const steps = Math.min(20000, Math.max(100, Math.round(settings.steps)));
-    cache = { key, r: simulate(blocks, wires, tEnd, steps), blocks, wires };
+    cache = { key, r: runSimulation(blocks, wires, settings.tEnd, settings.steps), blocks, wires };
   }
   return cache;
 }

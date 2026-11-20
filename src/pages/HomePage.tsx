@@ -90,6 +90,21 @@ const AREAS: Area[] = [
       { route: 'fourier', label: 'Fourier / FFT', desc: 'Fourier series, Gibbs, FFT spectrum, windows, aliasing' },
     ],
   },
+  {
+    title: 'Tools',
+    lead: 'The formulas behind the simulators in one searchable collection, and a unit converter for the quantities of the engineering lectures.',
+    accent: 'var(--plant-300)',
+    icon: (
+      <>
+        <path d="M4 4h16v16H4z" />
+        <path d="M8 9h8M8 13h5M8 17h3" />
+      </>
+    ),
+    modules: [
+      { route: 'formulas', label: 'Formula collection', desc: 'About 50 formulas with symbols, each linked to its simulator' },
+      { route: 'units', label: 'Unit converter', desc: 'Pressure, energy, flows, viscosity, λ, α and more' },
+    ],
+  },
 ];
 
 export default function HomePage() {
@@ -134,6 +149,13 @@ export default function HomePage() {
         ))}
       </div>
       <footer className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px] text-plant-500">
+        <span>© 2026 momo-senpai1 · Practical Engineering</span>
+        <a href="https://github.com/momo-senpai1/Practical-Engineering/blob/main/LICENSE" target="_blank" rel="noreferrer" className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
+          {t('Apache License 2.0')}
+        </a>
+        <a href={`${import.meta.env.BASE_URL}third-party-licenses.txt`} target="_blank" rel="noreferrer" className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
+          {t('Third-party licenses')}
+        </a>
         <span>{t('No tracking · your work stays in your browser')}</span>
         <button type="button" onClick={() => navigate('privacy')} className="text-plant-400 underline-offset-2 hover:text-signal-liquid hover:underline">
           {t('Privacy')}

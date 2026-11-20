@@ -1,7 +1,7 @@
 # Practical Engineering
 
 Browser-based simulators for the core engineering lectures. The start page
-(`#/`) leads to five areas:
+(`#/`) leads to six areas:
 
 | Area | Routes | What it does |
 |---|---|---|
@@ -10,6 +10,7 @@ Browser-based simulators for the core engineering lectures. The start page
 | **Electrical Circuits** | `#/circuits` | Circuit simulator: DC, transient, AC/Bode, step-by-step network simplification |
 | **Control Engineering** | `#/control-sim`, `#/control`, `#/bode`, `#/filters`, `#/fourier` | Control loops with block diagram reduction, Bode/Nyquist, stability, filter design, Fourier/FFT |
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
+| **Tools** | `#/formulas`, `#/units` | Searchable formula collection (linked to the simulators), unit converter |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
 · Recharts 3 · KaTeX · zod. Fonts (Inter, JetBrains Mono) are bundled; the site makes no
@@ -517,6 +518,15 @@ published equations; the following projects are used as logic references only
 DWSIM, CADET, ThermalSeparation (Modelica), and the McCabe–Thiele simulators by
 trsav, 314arhaam and minangajayasekera-ops.
 
+## Learning aids
+
+- **Tutor mode** (circuit simplification, block-diagram reduction): the solution path step by step,
+  three hints per step (idea → formula → approach), and an answer check.
+- **Error diagnosis** (`src/lib/diagnose.ts`): a wrong answer is checked for typical slips — unit
+  prefixes (×1000), sign, °C/K, factor 2/4/π/2π, time units, decimal point — and for the typical
+  wrong method of the step (e.g. series formula used for a parallel connection).
+- **Parameter help** for P/PI/PD/PID and **curve comparison** in the control simulator.
+
 ## Security and privacy
 
 - **No third-party requests:** fonts are bundled (`@fontsource`), there is no tracking or
@@ -525,6 +535,12 @@ trsav, 314arhaam and minangajayasekera-ops.
   itself, no inline scripts (the theme bootstrap is `public/theme.js`).
 - **Imported sheets are validated** with zod (`src/store/sheetSchemas.ts`) before they reach a
   store; invalid files are rejected without changing anything.
+- **Robustness:** `src/__tests__/robustness.test.ts` feeds every solver with 0, negative, huge,
+  tiny, NaN and ±∞ inputs; none may throw or hang. Inputs of the control pages are limited in
+  `src/lib/guard.ts`, and every page has an error boundary instead of a blank screen.
+- **CI hardening:** GitHub Actions pinned to commit SHAs, least-privilege `permissions`, CodeQL
+  (`.github/workflows/codeql.yml`), `SECURITY.md` for private vulnerability reports, and
+  security headers for Vercel (`vercel.json`: CSP incl. `frame-ancestors`, HSTS, nosniff …).
 
 ## Saving, exporting and shared examples
 
@@ -534,3 +550,10 @@ trsav, 314arhaam and minangajayasekera-ops.
   with the diagram and the results tab that is open.
 - **Shared examples:** a sheet exported as a file and placed in `src/examples/control-sim/` or
   `src/examples/circuit/` is listed under "Shared examples" for every visitor after the next deploy.
+
+## License
+
+Copyright 2026 momo-senpai1. Licensed under the **Apache License, Version 2.0** — see
+[`LICENSE`](LICENSE) and [`NOTICE`](NOTICE). Bundled third-party software and fonts keep their own
+licenses (MIT, ISC, BSD, Apache-2.0, SIL OFL 1.1); every build writes the full list with license
+texts to `third-party-licenses.txt`, linked in the footer of the start page.

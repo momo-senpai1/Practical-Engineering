@@ -1,21 +1,31 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the current state of the `main` branch (the deployed website) receives security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Please **do not open a public issue** for security problems.
 
-Use this section to tell people how to report a vulnerability.
+Report it privately via GitHub: **Security → Report a vulnerability**
+(https://github.com/momo-senpai1/Practical-Engineering/security/advisories/new).
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Please include:
+
+- what is affected (page, file, dependency) and how to reproduce it,
+- the impact you expect (e.g. script injection, crash through a crafted file or link),
+- if possible, a suggested fix.
+
+## What to expect
+
+- Acknowledgement within **7 days**.
+- An assessment and, for confirmed issues, a fix or mitigation plan within **30 days**.
+- Credit in the release notes if you wish.
+
+## Scope
+
+The site is static: no server, no accounts, no data leaves the browser (see `#/privacy`).
+Relevant are in particular script injection (XSS), crafted sheet files or share links
+(`?sheet=`) that break or abuse the page, and vulnerable dependencies.
+Out of scope: denial of service by deliberately entering huge simulation sizes in your own browser.
