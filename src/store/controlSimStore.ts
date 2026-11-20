@@ -6,6 +6,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { safeStorage } from '@/components/mechanics/common';
 import type { BlockSpec } from '@/engine/control/loop';
 import type { SimBlockData } from '@/engine/control/blocksim';
+import { checkSheet, simSheet } from './sheetSchemas';
 
 export type SNodeData = SimBlockData & Record<string, unknown>;
 export type SNode = Node<SNodeData, 'cblock'>;
@@ -211,7 +212,8 @@ interface State {
   clear: () => void;
   /** current sheet for saving, and loading a saved one */
   snapshot: () => SimSheet;
-  loadSheet: (p: unknown) => void;
+  /** false when the sheet is invalid (nothing is changed then) */
+  loadSheet: (p: unknown) => boolean;
 }
 export interface SimSheet {
   nodes: SNode[];
@@ -273,9 +275,10 @@ export const useControlSim = create<State>()(
       clear: () => set({ nodes: [], edges: [], settings: { tEnd: 20, steps: 2000 }, loadSeq: get().loadSeq + 1 }),
       snapshot: () => ({ nodes: get().nodes.map(({ id, type, position, data }) => ({ id, type, position, data })) as SNode[], edges: get().edges, settings: get().settings }),
       loadSheet: (p) => {
-        const s = p as Partial<SimSheet>;
-        if (!Array.isArray(s.nodes) || !Array.isArray(s.edges)) return;
-        set({ nodes: structuredClone(s.nodes).map((n) => ({ ...n, selected: false })), edges: structuredClone(s.edges), settings: { tEnd: 20, steps: 2000, ...s.settings }, loadSeq: get().loadSeq + 1 });
+        const s = checkSheet(simSheet, p);
+        if (!s) return false;
+        set({ nodes: (s.nodes as SNode[]).map((n) => ({ ...n, selected: false })), edges: s.edges as SEdge[], settings: { tEnd: 20, steps: 2000, ...s.settings }, loadSeq: get().loadSeq + 1 });
+        return true;
       },
     }),
     {

@@ -1,3 +1,4 @@
+import type { TipProps } from '@/lib/chartTip';
 import { Pause, Play } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,7 +13,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import { axisTick, VIZ } from '@/components/analysis/vizTokens';
 import { ParamSlider } from '@/components/ParamSlider';
@@ -35,7 +35,7 @@ const lbl = { fill: VIZ.textMuted, fontSize: 10, fontFamily: 'Inter, sans-serif'
 const mono = { ...lbl, fill: VIZ.text, fontFamily: 'JetBrains Mono, monospace' };
 const line = { dot: false, isAnimationActive: false, type: 'linear' as const, activeDot: false };
 
-function TrajTip({ active, payload }: TooltipProps<number, string>) {
+function TrajTip({ active, payload }: TipProps) {
   const p = payload?.[0]?.payload as BatchPoint | undefined;
   if (!active || !p) return null;
   const row = (c: string, k: string, v: number, dash?: boolean) => (

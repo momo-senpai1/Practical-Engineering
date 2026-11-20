@@ -1,5 +1,6 @@
+import type { TipProps } from '@/lib/chartTip';
 import { useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Label, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Label, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { axisTick, VIZ } from '@/components/analysis/vizTokens';
 import { EquipmentPanel } from '@/components/equipment/EquipmentCards';
 import { ParamSlider } from '@/components/ParamSlider';
@@ -9,7 +10,7 @@ import { fmt } from '@/lib/utils';
 
 const lbl = { fill: VIZ.textMuted, fontSize: 10, fontFamily: 'Inter, sans-serif' };
 
-function TempTip({ active, payload }: TooltipProps<number, string>) {
+function TempTip({ active, payload }: TipProps) {
   const p = payload?.[0]?.payload as { name: string; T: number; Tsat?: number } | undefined;
   if (!active || !p) return null;
   return (
@@ -135,7 +136,7 @@ export default function EvaporationPage() {
                       <Cell key={s.n} fill={Number(s.n) === N ? VIZ.equilibrium : VIZ.diagonal} />
                     ))}
                   </Bar>
-                  <Tooltip cursor={{ fill: 'rgba(148,163,184,0.06)' }} contentStyle={{ background: 'rgb(var(--plant-950))', border: '1px solid rgb(var(--white)/0.1)', fontSize: 10 }} formatter={(v: number) => fmt(v, 2)} />
+                  <Tooltip cursor={{ fill: 'rgba(148,163,184,0.06)' }} contentStyle={{ background: 'rgb(var(--plant-950))', border: '1px solid rgb(var(--white)/0.1)', fontSize: 10 }} formatter={(raw) => { const v = Number(raw); return fmt(v, 2); }} />
                 </BarChart>
               </ResponsiveContainer>
               <p className="text-[10px] text-plant-500">Each effect adds a little less economy (≈ N·0.8) while the total area grows — the economic optimum balances steam against surface. MVR: {fmt(comp.specific, 1)} kWh of electricity per tonne evaporated.</p>

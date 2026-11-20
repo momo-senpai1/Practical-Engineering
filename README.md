@@ -1,7 +1,7 @@
 # Practical Engineering
 
 Browser-based simulators for the core engineering lectures. The start page
-(`#/`) leads to three areas:
+(`#/`) leads to five areas:
 
 | Area | Routes | What it does |
 |---|---|---|
@@ -12,7 +12,8 @@ Browser-based simulators for the core engineering lectures. The start page
 | **Mechanics** | `#/beam`, `#/truss`, `#/torsion` | Beams, trusses, shafts in torsion (Engineering Mechanics 1 and 2) |
 
 **Stack:** React 18 · TypeScript · Vite · Tailwind CSS · `@xyflow/react` · Zustand
-· Recharts · KaTeX.
+· Recharts 3 · KaTeX · zod. Fonts (Inter, JetBrains Mono) are bundled; the site makes no
+requests to third parties and keeps all data in the browser.
 
 ### Heat & Mass Transfer (`engine/heat/`)
 
@@ -184,8 +185,8 @@ strength of materials):
 Requires **Node.js 20.19+ or 22+** (`node -v`).
 
 ```bash
-git clone https://github.com/momo-senpai1/Thermal-separation.git
-cd Thermal-separation
+git clone https://github.com/momo-senpai1/Practical-Engineering.git
+cd Practical-Engineering
 npm ci            # install exact locked dependencies
 npm run dev       # dev server with hot reload → http://localhost:5173
 ```
@@ -193,8 +194,9 @@ npm run dev       # dev server with hot reload → http://localhost:5173
 | Command | What it does |
 |---|---|
 | `npm run dev` | Development server with hot reload |
-| `npm test` | Unit + integration tests (vitest, 165 tests) |
+| `npm test` | Unit + integration tests (vitest) |
 | `npm run typecheck` | Strict TypeScript check |
+| `npm run lint` | ESLint (TypeScript, React hooks) |
 | `npm run build` | Type-check + production bundle in `dist/` |
 | `npm run preview` | Serve the production build → http://localhost:4173 |
 
@@ -205,14 +207,18 @@ npm run dev       # dev server with hot reload → http://localhost:5173
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
 2. Merge to `main` (or run the workflow manually: **Actions → Deploy to GitHub Pages → Run workflow**).
-3. The site appears at `https://momo-senpai1.github.io/Thermal-separation/`.
+3. The site appears at `https://momo-senpai1.github.io/Practical-Engineering/`.
 
 GitHub Pages on a **private** repository needs a paid plan (Pro/Team/Enterprise);
 otherwise make the repository public, or deploy `dist/` to any static host
 (Vercel, Netlify, Cloudflare Pages: build command `npm run build`, output `dist`).
 The base path comes from `VITE_BASE` (set automatically by the workflow).
 
-`.github/workflows/ci.yml` runs type-check, tests and build on every push and PR.
+`.github/workflows/ci.yml` runs type-check, lint, tests and build on every push and PR.
+Dependabot (`.github/dependabot.yml`) opens weekly pull requests for dependency updates.
+
+**Recommended:** protect `main` (Settings → Branches → Add rule → *Require status checks to
+pass before merging* → select the `verify` job), so only green builds are merged.
 
 ## Roadmap
 
@@ -221,7 +227,7 @@ The base path comes from `VITE_BASE` (set automatically by the workflow).
 | 1 | React Flow canvas, custom P&ID nodes (Feed, Mixer, Heater, Column), Zustand store | ✅ |
 | 2 | `thermodynamics.ts` — Raoult/Dalton VLE, Antoine, enthalpy balances | ✅ |
 | 3 | Engine ↔ UI: unit solve in topological order, live stream propagation | ✅ |
-| 4 | McCabe–Thiele side panel (Tremor/Recharts) on column selection | ✅ |
+| 4 | McCabe–Thiele side panel (Recharts) on column selection | ✅ |
 
 ## Modules
 
@@ -475,7 +481,7 @@ dew 98.8 °C, α̅ = 2.47 — matching textbook values.
 
 Selecting a distillation node docks a panel beside the canvas (lazy-loaded):
 
-- **KPI cards** (Tremor): distillate / bottoms purity, R/Rmin with an
+- **KPI cards**: distillate / bottoms purity, R/Rmin with an
   optimum-range badge, reboiler and condenser duty, feed stage and q.
 - **McCabe–Thiele** (Recharts): constant-α equilibrium curve, y = x, rectifying
   (solid) and stripping (dashed) operating lines, q-line to the equilibrium
@@ -510,6 +516,15 @@ published equations; the following projects are used as logic references only
 (no code is copied — DWSIM and CADET are GPL-licensed):
 DWSIM, CADET, ThermalSeparation (Modelica), and the McCabe–Thiele simulators by
 trsav, 314arhaam and minangajayasekera-ops.
+
+## Security and privacy
+
+- **No third-party requests:** fonts are bundled (`@fontsource`), there is no tracking or
+  analytics. Sheets and settings live in the browser's local storage only (see `#/privacy`).
+- **Content Security Policy** (production build, `vite.config.ts`): scripts only from the site
+  itself, no inline scripts (the theme bootstrap is `public/theme.js`).
+- **Imported sheets are validated** with zod (`src/store/sheetSchemas.ts`) before they reach a
+  store; invalid files are rejected without changing anything.
 
 ## Saving, exporting and shared examples
 

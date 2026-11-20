@@ -1,3 +1,4 @@
+import type { TipProps } from '@/lib/chartTip';
 import {
   CartesianGrid,
   Label,
@@ -8,7 +9,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import { fmt } from '@/lib/utils';
 import type { TxyRow } from './chartData';
@@ -21,7 +21,7 @@ export interface TxyMarker {
   T: number;
 }
 
-function CrosshairTooltip({ active, payload }: TooltipProps<number, string>) {
+function CrosshairTooltip({ active, payload }: TipProps) {
   const r = payload?.[0]?.payload as TxyRow | undefined;
   if (!active || !r) return null;
   return (
@@ -80,7 +80,7 @@ export function TxyChart({ rows, markers }: { rows: TxyRow[]; markers: TxyMarker
             <Label value={m.label} position="top" offset={8} style={{ ...labelStyle, fill: VIZ.text, fontFamily: 'JetBrains Mono, monospace' }} />
           </ReferenceDot>
         ))}
-        <Tooltip content={<CrosshairTooltip />} cursor={{ stroke: VIZ.textFaint, strokeWidth: 1 }} isAnimationActive={false} />
+        <Tooltip content={(tp) => <CrosshairTooltip {...tp} />} cursor={{ stroke: VIZ.textFaint, strokeWidth: 1 }} isAnimationActive={false} />
       </LineChart>
     </ResponsiveContainer>
   );

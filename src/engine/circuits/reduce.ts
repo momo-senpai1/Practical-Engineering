@@ -188,7 +188,7 @@ function combo(parts: string[], k: number): string {
   const L = letters.size === 1 ? [...letters][0]! : 'Z';
   const subs = parts.map((p) => /_\{(.*)\}'*$/.exec(p)?.[1] ?? '');
   const joined = subs.every((x) => /^[0-9]$/.test(x)) ? subs.sort().join('') : subs.join('');
-  return joined.length && joined.length <= 4 && /^[0-9]+$/.test(joined) ? `${L}_{${joined}}` : `${L}_{\mathrm{e}${k}}`;
+  return joined.length && joined.length <= 4 && /^[0-9]+$/.test(joined) ? `${L}_{${joined}}` : `${L}_{\\mathrm{e}${k}}`;
 }
 
 const symOf = (name: string) => {

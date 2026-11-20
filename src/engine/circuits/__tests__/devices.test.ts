@@ -192,9 +192,8 @@ describe('transient', () => {
       20000,
     );
     const out = r.nets[r.netOf.get('U:out')!]!;
-    let rises = 0;
     const times: number[] = [];
-    for (let i = 1; i < out.length; i++) if (out[i - 1]! < 3 && out[i]! >= 3) (rises++, times.push(r.t[i]!));
+    for (let i = 1; i < out.length; i++) if (out[i - 1]! < 3 && out[i]! >= 3) times.push(r.t[i]!);
     const f = (times.length - 2) / (times.at(-1)! - times[1]!);
     expect(f).toBeGreaterThan(55);
     expect(f).toBeLessThan(80); // 1.44/(21k·1µ) = 68.6 Hz

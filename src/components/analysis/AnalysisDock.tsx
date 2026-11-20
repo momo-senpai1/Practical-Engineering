@@ -2,7 +2,7 @@ import { useReactFlow } from '@xyflow/react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useFlowsheet } from '@/store/flowsheetStore';
 
-// charts (Tremor + Recharts) load on first column selection
+// charts (Recharts) load on first column selection
 const ColumnAnalysisPanel = lazy(() => import('./ColumnAnalysisPanel'));
 
 /**

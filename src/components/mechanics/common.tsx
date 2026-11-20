@@ -162,8 +162,8 @@ export function Diagram({
           <Area type="linear" dataKey={dataKey} stroke={color} strokeWidth={1.8} fill={color} fillOpacity={0.18} isAnimationActive={false} baseValue={0} />
           <Tooltip
             contentStyle={{ background: 'rgb(var(--plant-950))', border: '1px solid rgb(var(--white)/0.1)', fontSize: 10 }}
-            formatter={(v: number) => [`${nf(v, digits + 1)} ${unit}`, label]}
-            labelFormatter={(l: number) => `x = ${nf(l, 3)} m`}
+            formatter={(raw) => { const v = Number(raw); return [`${nf(v, digits + 1)} ${unit}`, label]; }}
+            labelFormatter={(raw) => { const l = Number(raw); return `x = ${nf(l, 3)} m`; }}
           />
         </ComposedChart>
       </ResponsiveContainer>

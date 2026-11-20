@@ -11,10 +11,11 @@ import { DE, TERMS_DE } from './de';
 import { KU, TERMS_KU } from './ku';
 
 export type Lang = 'en' | 'de' | 'ku';
-export const LANGS: { id: Lang; label: string; name: string }[] = [
+/** beta: the dictionary is incomplete, missing texts appear in English */
+export const LANGS: { id: Lang; label: string; name: string; beta?: boolean }[] = [
   { id: 'en', label: 'EN', name: 'English' },
   { id: 'de', label: 'DE', name: 'Deutsch' },
-  { id: 'ku', label: 'KU', name: 'Kurdî (Kurmancî)' },
+  { id: 'ku', label: 'KU', name: 'Kurdî (Kurmancî) — beta: hin nivîs hîn bi Îngilîzî ne / some texts are still in English', beta: true },
 ];
 const KEY = 'ts-lang';
 

@@ -1,3 +1,4 @@
+import type { TipProps } from '@/lib/chartTip';
 import { useMemo } from 'react';
 import {
   CartesianGrid,
@@ -11,7 +12,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import { axisTick, VIZ } from '@/components/analysis/vizTokens';
 import type { DesignResult, DesignStage, Pt } from '@/engine/mtDesign';
@@ -56,7 +56,7 @@ function Corner(props: { cx?: number; cy?: number; payload?: DesignStage }) {
   return <circle cx={cx} cy={cy} r={4} fill={VIZ.steps} stroke={VIZ.surface} strokeWidth={2} />;
 }
 
-function StageTip({ active, payload, stages }: TooltipProps<number, string> & { stages: DesignStage[] }) {
+function StageTip({ active, payload, stages }: TipProps & { stages: DesignStage[] }) {
   const raw = payload?.[0]?.payload as Partial<DesignStage> | undefined;
   const s =
     raw?.stage !== undefined

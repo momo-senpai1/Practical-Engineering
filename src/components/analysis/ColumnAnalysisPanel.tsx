@@ -1,25 +1,7 @@
-import {
-  Badge,
-  Card,
-  Metric,
-  ProgressBar,
-  Tab,
-  TabGroup,
-  TabList,
-  TabPanel,
-  TabPanels,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-  Text,
-} from '@tremor/react';
 import { AlertTriangle, CheckCircle2, Gauge, X } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { COMPONENTS } from '@/engine/components';
-import { fmt, kToC } from '@/lib/utils';
+import { cn, fmt, kToC } from '@/lib/utils';
 import { useFlowsheet, type UnitNode } from '@/store/flowsheetStore';
 import { buildMcCabeThiele, buildStageTable, buildTxy } from './chartData';
 import { McCabeThieleChart, McCabeThieleLegend } from './McCabeThieleChart';
@@ -32,18 +14,30 @@ function refluxBadge(ratio: number) {
   return { color: 'slate', label: 'Above optimum (> 1.5)', Icon: Gauge } as const;
 }
 
+const BADGE = { amber: 'bg-signal-heat/15 text-signal-heat', emerald: 'bg-signal-ok/15 text-signal-ok', slate: 'bg-white/[0.06] text-plant-300' } as const;
+
 function Kpi({ title, value, unit, children }: { title: string; value: string; unit?: string; children?: React.ReactNode }) {
   return (
-    <Card className="!bg-plant-950/60 !p-3 !ring-white/[0.06]">
-      <Text className="!text-[10px] !uppercase !tracking-[0.12em] !text-plant-400">{title}</Text>
-      <Metric className="readout mt-0.5 !text-xl !text-plant-100">
+    <div className="rounded-md border border-white/[0.06] bg-plant-950/60 p-3">
+      <p className="text-[10px] uppercase tracking-[0.12em] text-plant-400">{title}</p>
+      <p className="readout mt-0.5 text-xl text-plant-100">
         {value}
         {unit && <span className="ml-1 text-xs font-normal text-plant-400">{unit}</span>}
-      </Metric>
+      </p>
       <div className="mt-1.5">{children}</div>
-    </Card>
+    </div>
   );
 }
+
+function Bar({ value }: { value: number }) {
+  return (
+    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]" role="progressbar" aria-valuenow={value} aria-valuemin={0} aria-valuemax={100}>
+      <div className="h-full rounded-full bg-signal-liquid" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    </div>
+  );
+}
+
+const Small = ({ children }: { children: React.ReactNode }) => <p className="readout mt-1 text-[10px] text-plant-400">{children}</p>;
 
 export default function ColumnAnalysisPanel({ node, onClose }: { node: UnitNode; onClose: () => void }) {
   const c = node.data.column;
@@ -59,6 +53,7 @@ export default function ColumnAnalysisPanel({ node, onClose }: { node: UnitNode;
 
   const sys = `${COMPONENTS[system.A].name} / ${COMPONENTS[system.B].name}`;
   const { refluxRatio: R, theoreticalStages: N, condenserType = 'total' } = node.data.params;
+  const [tab, setTab] = useState(0);
 
   return (
     <section
@@ -92,46 +87,48 @@ export default function ColumnAnalysisPanel({ node, onClose }: { node: UnitNode;
         <div className="flex-1 space-y-3 overflow-y-auto p-3">
           <div className="grid grid-cols-2 gap-2">
             <Kpi title={`Distillate purity · ${COMPONENTS[system.A].name}`} value={fmt(c.xD * 100, 2)} unit="mol %">
-              <ProgressBar value={c.xD * 100} color="teal" className="mt-1" showAnimation={false} />
-              <Text className="readout mt-1 !text-[10px] !text-plant-400">
+              <Bar value={c.xD * 100} />
+              <Small>
                 D = {fmt(c.D, 1)} kmol/h · {fmt(kToC(D.temperature), 1)} °C
-              </Text>
+              </Small>
             </Kpi>
             <Kpi title={`Bottoms purity · ${COMPONENTS[system.B].name}`} value={fmt((1 - c.xB) * 100, 2)} unit="mol %">
-              <ProgressBar value={(1 - c.xB) * 100} color="teal" className="mt-1" showAnimation={false} />
-              <Text className="readout mt-1 !text-[10px] !text-plant-400">
+              <Bar value={(1 - c.xB) * 100} />
+              <Small>
                 B = {fmt(c.B, 1)} kmol/h · {fmt(kToC(B.temperature), 1)} °C · x<sub>B</sub> = {fmt(c.xB, 4)}
-              </Text>
+              </Small>
             </Kpi>
             <Kpi title="Reflux / minimum" value={fmt(R / c.Rmin, 2)} unit="× Rmin">
               {(() => {
                 const b = refluxBadge(R / c.Rmin);
                 return (
-                  <Badge color={b.color} icon={b.Icon} size="xs">
+                  <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px]', BADGE[b.color])}>
+                    <b.Icon className="h-3 w-3" />
                     {b.label}
-                  </Badge>
+                  </span>
                 );
               })()}
-              <Text className="readout mt-1 !text-[10px] !text-plant-400">
+              <Small>
                 R = {fmt(R, 2)} · Rmin = {fmt(c.Rmin, 3)} · Nmin = {fmt(c.Nmin, 2)}
-              </Text>
+              </Small>
             </Kpi>
             <Kpi title="Reboiler duty" value={fmt(c.Qr, 0)} unit="kW">
-              <Text className="readout !text-[10px] !text-plant-400">Condenser Qc = {fmt(c.Qc, 0)} kW</Text>
-              <Text className="readout !text-[10px] !text-plant-400">
+              <Small>Condenser Qc = {fmt(c.Qc, 0)} kW</Small>
+              <Small>
                 Feed stage {c.feedStage} of {N} · q = {fmt(c.q, 3)}
-              </Text>
+              </Small>
             </Kpi>
           </div>
 
-          <TabGroup>
-            <TabList variant="line" className="!border-white/[0.06]">
-              <Tab className="!text-[11px]">McCabe–Thiele</Tab>
-              <Tab className="!text-[11px]">T–x–y</Tab>
-              <Tab className="!text-[11px]">Stage table</Tab>
-            </TabList>
-            <TabPanels>
-              <TabPanel className="!mt-3 space-y-2">
+          <div>
+            <div role="tablist" className="flex gap-1 border-b border-white/[0.06]">
+              {['McCabe–Thiele', 'T–x–y', 'Stage table'].map((l, k) => (
+                <button key={l} role="tab" type="button" aria-selected={tab === k} onClick={() => setTab(k)} className={cn('-mb-px border-b-2 px-3 py-1.5 text-[11px]', tab === k ? 'border-signal-liquid text-signal-liquid' : 'border-transparent text-plant-400 hover:text-plant-200')}>
+                  {l}
+                </button>
+              ))}
+            </div>
+            {tab === 0 && <div className="mt-3 space-y-2">
                 <McCabeThieleLegend real={!!c.curve} />
                 <McCabeThieleChart s={mt} />
                 <p className="text-[10px] leading-relaxed text-plant-500">
@@ -139,8 +136,8 @@ export default function ColumnAnalysisPanel({ node, onClose }: { node: UnitNode;
                   {condenserType === 'partial' && ' The first step is the partial condenser (an equilibrium stage).'}{' '}
                   {c.curve ? 'CMO assumed; stages stepped on the real equilibrium curve.' : 'CMO and constant α assumed.'}
                 </p>
-              </TabPanel>
-              <TabPanel className="!mt-3 space-y-2">
+              </div>}
+            {tab === 1 && <div className="mt-3 space-y-2">
                 <TxyLegend />
                 <TxyChart
                   rows={txy}
@@ -157,33 +154,32 @@ export default function ColumnAnalysisPanel({ node, onClose }: { node: UnitNode;
                 <p className="text-[10px] leading-relaxed text-plant-500">
                   Rigorous Raoult&apos;s-law envelope at {fmt(P, 1)} kPa. Between the lines the mixture is two-phase.
                 </p>
-              </TabPanel>
-              <TabPanel className="!mt-3">
-                <Table className="!overflow-visible">
-                  <TableHead>
-                    <TableRow>
+              </div>}
+            {tab === 2 && <div className="mt-3">
+                <table className="w-full">
+                  <thead>
+                    <tr>
                       {['Stage', 'Role', 'x', 'y', 'T [°C]'].map((h) => (
-                        <TableHeaderCell key={h} className="!px-2 !py-1.5 !text-[10px] !font-medium !uppercase !tracking-wider !text-plant-400">
+                        <th key={h} className="px-2 py-1.5 text-left text-[10px] font-medium uppercase tracking-wider text-plant-400">
                           {h}
-                        </TableHeaderCell>
+                        </th>
                       ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody className="!divide-white/[0.04]">
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
                     {stages.map((r) => (
-                      <TableRow key={r.stage} className={r.stage === c.feedStage ? 'bg-signal-liquid/[0.06]' : ''}>
-                        <TableCell className="readout !px-2 !py-1 !text-[11px] !text-plant-200">{r.stage}</TableCell>
-                        <TableCell className="!px-2 !py-1 !text-[11px] !text-plant-300">{r.section}</TableCell>
-                        <TableCell className="readout !px-2 !py-1 !text-right !text-[11px] !text-plant-100">{fmt(r.x, 4)}</TableCell>
-                        <TableCell className="readout !px-2 !py-1 !text-right !text-[11px] !text-plant-100">{fmt(r.y, 4)}</TableCell>
-                        <TableCell className="readout !px-2 !py-1 !text-right !text-[11px] !text-plant-100">{fmt(r.T, 2)}</TableCell>
-                      </TableRow>
+                      <tr key={r.stage} className={r.stage === c.feedStage ? 'bg-signal-liquid/[0.06]' : ''}>
+                        <td className="readout px-2 py-1 text-[11px] text-plant-200">{r.stage}</td>
+                        <td className="px-2 py-1 text-[11px] text-plant-300">{r.section}</td>
+                        <td className="readout px-2 py-1 text-right text-[11px] text-plant-100">{fmt(r.x, 4)}</td>
+                        <td className="readout px-2 py-1 text-right text-[11px] text-plant-100">{fmt(r.y, 4)}</td>
+                        <td className="readout px-2 py-1 text-right text-[11px] text-plant-100">{fmt(r.T, 2)}</td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
-              </TabPanel>
-            </TabPanels>
-          </TabGroup>
+                  </tbody>
+                </table>
+              </div>}
+          </div>
         </div>
       )}
     </section>

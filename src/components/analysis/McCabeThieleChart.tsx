@@ -1,3 +1,4 @@
+import type { TipProps } from '@/lib/chartTip';
 import {
   CartesianGrid,
   ComposedChart,
@@ -9,7 +10,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  type TooltipProps,
 } from 'recharts';
 import { fmt } from '@/lib/utils';
 import type { McCabeThieleSeries, Pt, StageCorner } from './chartData';
@@ -39,7 +39,7 @@ function CornerShape(props: { cx?: number; cy?: number; payload?: StageCorner })
  * so the hovered payload may be the bare {x, y} line point — resolve it back to
  * its stage by coordinates.
  */
-function CornerTooltip({ active, payload, corners }: TooltipProps<number, string> & { corners: StageCorner[] }) {
+function CornerTooltip({ active, payload, corners }: TipProps & { corners: StageCorner[] }) {
   const raw = payload?.[0]?.payload as Partial<StageCorner> | undefined;
   const p =
     raw?.stage !== undefined
@@ -120,7 +120,7 @@ export function McCabeThieleChart({ s }: { s: McCabeThieleSeries }) {
           </ReferenceDot>
         ))}
 
-        <Tooltip content={<CornerTooltip corners={s.corners} />} cursor={false} shared={false} isAnimationActive={false} />
+        <Tooltip content={(tp) => <CornerTooltip {...tp} corners={s.corners} />} cursor={false} shared={false} isAnimationActive={false} />
       </ComposedChart>
     </ResponsiveContainer>
   );
